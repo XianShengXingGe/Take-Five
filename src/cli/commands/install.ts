@@ -16,7 +16,7 @@ import {
   DEFAULT_ICONS,
 } from '../../types/config.js';
 import type { BarkPushPayload } from '../../types/bark.js';
-import type { SupportedAgent } from '../../types/event.js';
+import { getLocaleStrings } from '../../i18n/index.js';
 
 export interface PromptDriver {
   intro: (title: string) => void;
@@ -28,11 +28,6 @@ export interface PromptDriver {
     message: string;
     validate?: (value: string) => string | undefined;
     mask?: string;
-  }) => Promise<string | symbol>;
-  text: (opts: {
-    message: string;
-    placeholder?: string;
-    validate?: (value: string) => string | undefined;
   }) => Promise<string | symbol>;
   select: <T>(opts: {
     message: string;
@@ -54,7 +49,6 @@ const defaultPromptDriver: PromptDriver = {
   cancel: p.cancel,
   isCancel: p.isCancel,
   password: p.password,
-  text: p.text,
   select: p.select as PromptDriver['select'],
   confirm: p.confirm,
   spinner: p.spinner,
@@ -99,16 +93,11 @@ export function registerInstallCommand(
       const detected = detectInstalledAgents(deps.agentDetectorOptions);
       s.stop('Agent environments scanned.');
 
-      const AGENT_DISPLAY_NAMES: Record<SupportedAgent, string> = {
-        claude: 'Claude Code',
-        codex: 'OpenAI Codex',
-        opencode: 'OpenCode',
-        antigravity: 'Google Antigravity',
-      };
+      const zhDict = getLocaleStrings('zh-CN');
 
       if (detected.hasAnyInstalled) {
         const detectedList = detected.installedAgents
-          .map((agent) => `${AGENT_DISPLAY_NAMES[agent]} (${detected[agent].path})`)
+          .map((agent) => `${zhDict.agents[agent] ?? agent} (${detected[agent].path})`)
           .join('\n• ');
         prompt.note(`• ${detectedList}`, 'Detected Coding Agents');
       } else {
@@ -120,7 +109,6 @@ export function registerInstallCommand(
 
       // Step 2: Prompt Bark URL & verify mobile connectivity
       let currentUrl = '';
-      let isVerified = false;
 
       while (true) {
         if (!currentUrl) {
@@ -156,7 +144,6 @@ export function registerInstallCommand(
         try {
           await deps.barkClient.push(currentUrl, testPayload);
           s.stop(pc.green('✔ Test notification verified successfully on your device! 📱'));
-          isVerified = true;
           await deps.credentialStore.setBarkUrl(currentUrl);
           break;
         } catch (err: unknown) {
@@ -194,7 +181,7 @@ export function registerInstallCommand(
         }
       }
 
-      // Step 3: Notification language preferences
+      // Step 3: Notification language preferences & rules confirmation
       const languageChoice = await prompt.select<ConfigLanguage>({
         message: 'Select preferred notification & CLI language:',
         options: [
@@ -210,8 +197,34 @@ export function registerInstallCommand(
         return;
       }
 
+      // Display and confirm default notification rules
+      prompt.note(
+        '• task_completed (任务完成): active (普通通知)\n' +
+          '• waiting_input (等待输入): timeSensitive (重要提醒)\n' +
+          '• waiting_permission (等待授权): timeSensitive (重要提醒)\n' +
+          '• task_failed (任务失败): timeSensitive (重要提醒)',
+        'Default Notification Rules',
+      );
+
+      const confirmRules = await prompt.confirm({
+        message: 'Confirm default notification rules and proceed with configuration?',
+        initialValue: true,
+      });
+
+      if (prompt.isCancel(confirmRules) || confirmRules === false) {
+        prompt.cancel('Installation cancelled.');
+        return;
+      }
+
       // Step 4: Initialize ~/.takefive/config.json
       s.start('Initializing configuration at ~/.takefive/config.json...');
+
+      const enabledAgents = { ...DEFAULT_ENABLED_AGENTS };
+      if (detected.hasAnyInstalled) {
+        for (const agent of Object.keys(enabledAgents) as (keyof typeof enabledAgents)[]) {
+          enabledAgents[agent] = detected[agent]?.installed ?? true;
+        }
+      }
 
       const newConfig: TakeFiveConfig = {
         version: '1.0.0',
@@ -224,9 +237,7 @@ export function registerInstallCommand(
           waiting_permission: { ...DEFAULT_EVENT_RULES.waiting_permission },
           task_failed: { ...DEFAULT_EVENT_RULES.task_failed },
         },
-        enabledAgents: {
-          ...DEFAULT_ENABLED_AGENTS,
-        },
+        enabledAgents,
       };
 
       await deps.configManager.saveConfig(newConfig);

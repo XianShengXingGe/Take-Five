@@ -17,7 +17,6 @@ export interface DetectedAgentsResult extends DetectedAgents {
 
 export interface AgentDetectorOptions {
   homedir?: string;
-  env?: Record<string, string | undefined>;
 }
 
 /**
