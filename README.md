@@ -1,42 +1,68 @@
-# Take Five (片刻)
+<p align="center">
+  <img src="assets/icons/antigravity.png" width="96" height="96" alt="Take Five Icon" />
+</p>
 
-> Get a phone notification the moment your AI coding agent finishes — so you can step away and come back at exactly the right time.
+<h1 align="center">Take Five（片刻）</h1>
 
-**English** · [中文](#中文)
+<p align="center">
+  <strong>Stop staring at your screen. Your phone will tell you when to come back.</strong><br>
+  Works quietly in the background · iPhone push notifications · No babysitting required
+</p>
 
----
+<p align="center">
+  <a href="#-english">English</a> | <a href="#-简体中文">简体中文</a>
+</p>
 
-## The Problem
-
-You're running an AI coding agent — it might take 2 minutes or 20. So you sit there, staring at the screen, hitting refresh, waiting.
-
-Or you walk away and miss the moment it needs your input. The agent is stuck, burning time. You come back 30 minutes later to find it waited for you the whole time.
-
-**Take Five** solves this: the moment anything important happens, your phone buzzes.
-
----
-
-## What It Does
-
-Take Five hooks into your AI coding agent. When the agent finishes a task, gets stuck waiting for you, or runs into an error — you get a push notification on your iPhone or iPad **instantly**.
-
-You can step away from your computer with confidence. Take Five will call you back.
+<p align="center">
+  <a href="https://github.com/XianShengXingGe/Take-Five/releases/latest"><img src="https://img.shields.io/badge/Download-v0.1-007AFF.svg" alt="Download Latest Release"></a>
+  <img src="https://img.shields.io/badge/macOS-12%2B-000000.svg" alt="macOS 12+">
+  <img src="https://img.shields.io/badge/Requires-Node.js%20v18%2B-339933.svg" alt="Node.js v18+">
+  <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT">
+</p>
 
 ---
 
-## Who It's For
+<a id="-english"></a>
+## 🌟 English
 
-Anyone who uses an AI coding agent on their Mac and doesn't want to babysit it.
+### Why Take Five?
+
+AI coding agents are getting powerful — but they still need you. They pause when they have a question. They stop when something goes wrong. They finish and wait in silence.
+
+Most people deal with this in one of two ways: stare at the screen and wait, or walk away and miss the moment. **Take Five** is a third option.
 
 ---
 
-## How to Use
+### 🔔 The Problem: You're Either Waiting or Missing
 
-### Step 1 — Get the Bark app
+- **The frustration**:  
+  Your agent is running a task that might take 2 minutes or 20. You don't want to walk away — what if it needs you? But if you keep watching, you're just wasting time staring at a screen.  
+  Or you do step away, and it gets stuck waiting for your input. You come back 30 minutes later to find it's been idle the whole time.
 
-[Bark](https://apps.apple.com/app/bark-custom-notifications/id1403753865) is a free iPhone app that receives push notifications. Install it on your phone.
+- **How Take Five helps**:  
+  The moment your agent finishes, gets stuck, or hits an error — your iPhone buzzes. You'll know exactly when to come back, without hovering over your computer.  
+  Set it up once, then forget about it. Take Five runs silently in the background and only speaks up when it matters.
 
-After opening Bark, you'll see your personal notification URL — it looks like:
+---
+
+### 📲 What Triggers a Notification?
+
+Take Five watches your agent for four types of events:
+
+| Event | What it means |
+|---|---|
+| ✅ Task completed | Your agent finished its work |
+| ⌨️ Waiting for input | Your agent is asking you a question |
+| 🔐 Waiting for permission | Your agent needs your approval to proceed |
+| ❌ Task failed | Something went wrong |
+
+---
+
+### 📥 Download & Setup
+
+**Step 1 — Get the Bark app on your iPhone**
+
+[Bark](https://apps.apple.com/app/bark-custom-notifications/id1403753865) is a free iOS app that receives push notifications. Install it, then open it — you'll see a URL that looks like:
 
 ```
 https://api.day.app/YOUR_KEY/
@@ -44,34 +70,30 @@ https://api.day.app/YOUR_KEY/
 
 Copy it. You'll need it in Step 3.
 
-### Step 2 — Install Take Five on your Mac
+**Step 2 — Install Take Five on your Mac**
 
-Download `TakeFive-0.1-macOS.dmg` from the [Releases](https://github.com/XianShengXingGe/Take-Five/releases) page. Open the DMG and double-click **一键安装 Take Five**.
+1. Download `TakeFive-0.1-macOS.dmg` from the [Releases](https://github.com/XianShengXingGe/Take-Five/releases) page.
+2. Open the DMG and double-click **一键安装 Take Five**.
 
-> Requires [Node.js](https://nodejs.org) (v18 or later) to already be installed on your Mac.
+> ⚠️ Requires [Node.js](https://nodejs.org) (v18 or later). If you don't have it, download the LTS version from nodejs.org first.
 
-### Step 3 — Set up
+**Step 3 — Run the setup wizard**
 
-The installer will walk you through two things:
+The installer walks you through two things:
+1. Paste your Bark URL — Take Five will send a test notification to confirm your phone is connected.
+2. Choose your notification language — English or Chinese.
 
-1. **Paste your Bark URL** — Take Five sends a test notification to confirm your phone is connected.
-2. **Choose your language** — notifications can be sent in English or Chinese.
-
-That's it. Take Five automatically wires itself into your coding agent.
-
-### Step 4 — Walk away
-
-Your agent runs. You go do something else. When it finishes — or needs you — your phone buzzes.
+That's it. Take Five wires itself into your coding agent automatically.
 
 ---
 
-## Commands
+### 🖥️ Commands
 
 Once installed, open any terminal:
 
 | Command | What it does |
 |---|---|
-| `takefive status` | Check connection and which agents are hooked in |
+| `takefive status` | Check connection status and which agents are active |
 | `takefive test` | Send a test notification to your phone |
 | `takefive config` | Change language, notification rules, and more |
 | `takefive repair` | Fix hooks if an agent update broke them |
@@ -79,79 +101,60 @@ Once installed, open any terminal:
 
 ---
 
-## Supported Agents
+### 🤝 Supported Agents
 
 | Agent | Status |
 |---|---|
-| [Antigravity](https://antigravity.dev) | ✅ Tested |
+| [Antigravity](https://antigravity.dev) | ✅ Fully tested |
 | Claude Code | ⚠️ Integrated, not fully tested |
 | Codex | ⚠️ Integrated, not fully tested |
 | OpenCode | ⚠️ Integrated, not fully tested |
 
-> **v0.1 note:** Only Antigravity has been fully tested. Other agents are integrated but may have rough edges. Please open an issue if you run into problems.
+> **v0.1 note:** Only Antigravity has been fully tested in this release. Other agents are integrated but may have rough edges. Please open an [issue](https://github.com/XianShengXingGe/Take-Five/issues) if you run into problems.
 
 ---
 
-## Notification Events
+<a id="-简体中文"></a>
+## 🇨🇳 简体中文
 
-Take Five watches for four types of events:
+### 为什么需要「片刻」？
 
-- ✅ **Task completed** — the agent finished its work
-- ⌨️ **Waiting for input** — the agent is asking you a question
-- 🔐 **Waiting for permission** — the agent needs your approval to proceed
-- ❌ **Task failed** — something went wrong
+AI 编程助手越来越能干了——但它还是离不开你。遇到问题它会停下来等你；出错了它会暂停；任务跑完了它也只是安静地等。
 
----
-
-## License
-
-MIT
+大多数人面对这个问题只有两种选择：盯着屏幕等，或者走开然后错过。**片刻**是第三种选择。
 
 ---
 
----
+### 🔔 痛点：你要么在等，要么错过了
 
-<a name="中文"></a>
+- **日常小烦恼**：  
+  AI 助手在跑一个任务，可能要 2 分钟，也可能要 20 分钟。你不敢走开——万一它需要你怎么办？但你坐在这儿盯着屏幕，时间也是白白浪费了。  
+  或者你走开了，结果它卡住等你输入。你半小时后回来，发现它就那么闲着，什么也没做。
 
-# Take Five（片刻）
-
-> AI 编程助手跑任务的时候，你不用盯着屏幕了——任务完成、卡住、出错，手机立刻收到推送。
-
----
-
-## 痛点
-
-你挂着 AI 编程助手跑任务，不知道要跑 2 分钟还是 20 分钟。
-
-盯着屏幕等——浪费时间。
-
-走开去做别的——又怕错过它等你回复的那一刻。等你回来，发现 AI 助手已经卡在那儿等了你半小时。
-
-**Take Five** 的解决方案很简单：只要发生任何重要的事，手机立刻震动。
+- **片刻帮你**：  
+  任务完成、卡住、出错的那一刻——你的 iPhone 立刻震动。你知道什么时候该回来，完全不用守着电脑。  
+  配置一次，之后忘了它的存在。片刻默默在后台运行，只在该说话的时候才吭声。
 
 ---
 
-## 它做什么
+### 📲 哪些情况会触发通知？
 
-Take Five 接入你的 AI 编程助手。任务完成、等待你输入、遇到错误——**你的 iPhone 或 iPad 会立刻收到推送通知**。
+片刻监听四种事件：
 
-放心离开电脑。Take Five 会叫你回来。
+| 事件 | 含义 |
+|---|---|
+| ✅ 任务完成 | 助手跑完了 |
+| ⌨️ 等待输入 | 助手在问你问题 |
+| 🔐 等待授权 | 助手需要你确认才能继续 |
+| ❌ 任务失败 | 出错了 |
 
 ---
 
-## 适合谁用
+### 📥 下载与安装
 
-在 Mac 上使用 AI 编程助手、不想一直盯着屏幕的开发者。
+**第一步 — 在 iPhone 上装 Bark**
 
----
-
-## 怎么用
-
-### 第一步 — 装 Bark app
-
-[Bark](https://apps.apple.com/app/bark-custom-notifications/id1403753865) 是一款免费的 iPhone 应用，用来接收推送通知。先在手机上安装好。
-
-打开 Bark 后，你会看到你专属的推送地址，大概长这样：
+[Bark](https://apps.apple.com/app/bark-custom-notifications/id1403753865) 是一款免费的 iOS 应用，用来接收推送通知。安装并打开后，你会看到一个推送地址，大概长这样：
 
 ```
 https://api.day.app/YOUR_KEY/
@@ -159,28 +162,24 @@ https://api.day.app/YOUR_KEY/
 
 复制好，第三步要用。
 
-### 第二步 — 在 Mac 上安装 Take Five
+**第二步 — 在 Mac 上安装片刻**
 
-从 [Releases](https://github.com/XianShengXingGe/Take-Five/releases) 页面下载 `TakeFive-0.1-macOS.dmg`，打开 DMG 后双击**一键安装 Take Five**。
+1. 从 [Releases 页面](https://github.com/XianShengXingGe/Take-Five/releases) 下载 `TakeFive-0.1-macOS.dmg`。
+2. 打开 DMG，双击**一键安装 Take Five**。
 
-> 需要提前安装 [Node.js](https://nodejs.org)（v18 及以上）。
+> ⚠️ 需要提前安装 [Node.js](https://nodejs.org)（v18 及以上）。如果没有，先去 nodejs.org 下载 LTS 版本。
 
-### 第三步 — 配置
+**第三步 — 运行配置向导**
 
 安装程序会引导你完成两件事：
+1. 粘贴你的 Bark 地址——片刻会发一条测试推送，确认手机连通正常。
+2. 选择通知语言——支持中文和英文。
 
-1. **粘贴你的 Bark 地址** — Take Five 会发一条测试通知，确认手机连通。
-2. **选择通知语言** — 支持中文和英文。
-
-完成后，Take Five 自动接入你的 AI 助手。
-
-### 第四步 — 放心离开
-
-助手在跑，你去干别的。任务完成——或者它需要你——手机自然会提醒你。
+完成后，片刻自动接入你的 AI 助手，不需要任何额外操作。
 
 ---
 
-## 命令列表
+### 🖥️ 命令列表
 
 安装完成后，在任意终端输入：
 
@@ -194,30 +193,19 @@ https://api.day.app/YOUR_KEY/
 
 ---
 
-## 支持的 AI 助手
+### 🤝 支持的 AI 助手
 
 | 助手 | 状态 |
 |---|---|
-| [Antigravity](https://antigravity.dev) | ✅ 已测试 |
+| [Antigravity](https://antigravity.dev) | ✅ 已完整测试 |
 | Claude Code | ⚠️ 已接入，未完整测试 |
 | Codex | ⚠️ 已接入，未完整测试 |
 | OpenCode | ⚠️ 已接入，未完整测试 |
 
-> **v0.1 说明：** 目前只有 Antigravity 经过完整测试。其他助手已接入但可能有问题，欢迎提 issue 反馈。
+> **v0.1 说明：** 目前只有 Antigravity 经过完整测试。其他助手已接入但可能有问题，欢迎提 [issue](https://github.com/XianShengXingGe/Take-Five/issues) 反馈。
 
 ---
 
-## 推送触发场景
+## 📄 License / 开源协议
 
-Take Five 监听四类事件：
-
-- ✅ **任务完成** — 助手跑完了
-- ⌨️ **等待输入** — 助手在问你问题
-- 🔐 **等待授权** — 助手需要你确认才能继续
-- ❌ **任务失败** — 出错了
-
----
-
-## 开源协议
-
-MIT
+本项目采用 [MIT License](LICENSE) 协议开源。
