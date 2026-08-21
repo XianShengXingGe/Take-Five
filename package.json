@@ -1,6 +1,6 @@
 {
   "name": "takefive",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Smart notification tool for Coding Agents (Codex, Claude Code, OpenCode, Antigravity)",
   "type": "module",
   "bin": {
