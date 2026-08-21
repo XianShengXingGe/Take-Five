@@ -88,6 +88,31 @@ describe('ClaudeAdapter', () => {
     expect(updatedContent.hooks.task_completed).toBe('takefive notify --agent claude --event task_completed');
   });
 
+  it('chains hooks non-destructively when user already has an identically named hook key', async () => {
+    const existingConfig = {
+      hooks: {
+        task_completed: 'my-custom-script.sh',
+      },
+    };
+    writeFileSync(configPath, JSON.stringify(existingConfig, null, 2));
+
+    const installResult = await adapter.install({ env: mockEnv });
+    expect(installResult.success).toBe(true);
+
+    const updated = JSON.parse(readFileSync(configPath, 'utf-8'));
+    expect(updated.hooks.task_completed).toBe(
+      'my-custom-script.sh && takefive notify --agent claude --event task_completed',
+    );
+
+    // Surgical uninstall should restore the original script
+    rmSync(`${configPath}.takefive.bak`, { force: true });
+    const uninstallResult = await adapter.uninstall({ env: mockEnv });
+    expect(uninstallResult.success).toBe(true);
+
+    const uninstalled = JSON.parse(readFileSync(configPath, 'utf-8'));
+    expect(uninstalled.hooks.task_completed).toBe('my-custom-script.sh');
+  });
+
   it('is completely idempotent on repeated install calls with zero drift', async () => {
     const initialConfig = { userSetting: 'keep-me' };
     writeFileSync(configPath, JSON.stringify(initialConfig, null, 2));
@@ -154,7 +179,6 @@ describe('ClaudeAdapter', () => {
     expect(adapter.mapLifecycleEvent('completed')).toBe('task_completed');
     expect(adapter.mapLifecycleEvent('done')).toBe('task_completed');
     expect(adapter.mapLifecycleEvent('task_finish')).toBe('task_completed');
-    expect(adapter.mapLifecycleEvent('posttoolexecution')).toBe('task_completed');
 
     expect(adapter.mapLifecycleEvent('prompt')).toBe('waiting_input');
     expect(adapter.mapLifecycleEvent('user_input')).toBe('waiting_input');

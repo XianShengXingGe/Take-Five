@@ -43,7 +43,7 @@ describe('OpenCodeAdapter', () => {
     expect(adapter.getConfigPath({ OPENCODE_CONFIG_PATH: customPath })).toBe(customPath);
   });
 
-  it('injects hooks and plugin into empty config and detects status', async () => {
+  it('injects hooks into empty config and detects status', async () => {
     const initialStatus = await adapter.getHookStatus(mockEnv);
     expect(initialStatus.detected).toBe(true);
     expect(initialStatus.installed).toBe(false);
@@ -61,11 +61,11 @@ describe('OpenCodeAdapter', () => {
     expect(postStatus.hooks.task_failed).toBe('takefive notify --agent opencode --event task_failed');
   });
 
-  it('preserves existing user configuration and plugins', async () => {
+  it('preserves existing user configuration and custom hooks', async () => {
     const existingConfig = {
       theme: 'github-dark',
-      plugins: {
-        existingPlugin: { enabled: true },
+      hooks: {
+        existingHook: 'echo 1',
       },
     };
     writeFileSync(configPath, JSON.stringify(existingConfig, null, 2));
@@ -77,8 +77,33 @@ describe('OpenCodeAdapter', () => {
 
     const updatedContent = JSON.parse(readFileSync(configPath, 'utf-8'));
     expect(updatedContent.theme).toBe('github-dark');
-    expect(updatedContent.plugins.existingPlugin).toEqual({ enabled: true });
-    expect(updatedContent.plugins.takefive.enabled).toBe(true);
+    expect(updatedContent.hooks.existingHook).toBe('echo 1');
+    expect(updatedContent.hooks.task_completed).toBe('takefive notify --agent opencode --event task_completed');
+  });
+
+  it('chains hooks non-destructively when user already has an identically named hook key', async () => {
+    const existingConfig = {
+      hooks: {
+        task_completed: 'opencode-cleanup.sh',
+      },
+    };
+    writeFileSync(configPath, JSON.stringify(existingConfig, null, 2));
+
+    const installResult = await adapter.install({ env: mockEnv });
+    expect(installResult.success).toBe(true);
+
+    const updated = JSON.parse(readFileSync(configPath, 'utf-8'));
+    expect(updated.hooks.task_completed).toBe(
+      'opencode-cleanup.sh && takefive notify --agent opencode --event task_completed',
+    );
+
+    // Surgical uninstall should restore the original script
+    rmSync(`${configPath}.takefive.bak`, { force: true });
+    const uninstallResult = await adapter.uninstall({ env: mockEnv });
+    expect(uninstallResult.success).toBe(true);
+
+    const uninstalled = JSON.parse(readFileSync(configPath, 'utf-8'));
+    expect(uninstalled.hooks.task_completed).toBe('opencode-cleanup.sh');
   });
 
   it('is completely idempotent on repeated install calls', async () => {
