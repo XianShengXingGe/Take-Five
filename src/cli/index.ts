@@ -3,11 +3,21 @@ import { fileURLToPath } from 'node:url';
 import { Command } from 'commander';
 import { ConfigManager } from '../core/config-manager.js';
 import { NotificationDispatcher } from '../core/notification-dispatcher.js';
+import { OsCredentialStore } from '../core/credential-store.js';
+import { BarkClient } from '../core/bark-client.js';
+import type { CredentialStore } from '../types/credential.js';
+import type { AgentDetectorOptions } from '../core/agent-detector.js';
 import { registerNotifyCommand } from './commands/notify.js';
+import { registerTestCommand } from './commands/test.js';
+import { registerInstallCommand, type PromptDriver } from './commands/install.js';
 
 export interface CliDependencies {
   configManager?: ConfigManager;
   dispatcher?: NotificationDispatcher;
+  credentialStore?: CredentialStore;
+  barkClient?: BarkClient;
+  promptDriver?: PromptDriver;
+  agentDetectorOptions?: AgentDetectorOptions;
 }
 
 export function createCli(deps: CliDependencies = {}): Command {
@@ -19,9 +29,19 @@ export function createCli(deps: CliDependencies = {}): Command {
     .version('1.0.0');
 
   const configManager = deps.configManager ?? new ConfigManager();
-  const dispatcher = deps.dispatcher ?? new NotificationDispatcher({ configManager });
+  const credentialStore = deps.credentialStore ?? new OsCredentialStore();
+  const barkClient = deps.barkClient ?? new BarkClient();
+  const dispatcher = deps.dispatcher ?? new NotificationDispatcher({ configManager, credentialStore, barkClient });
 
   registerNotifyCommand(program, dispatcher);
+  registerTestCommand(program, dispatcher);
+  registerInstallCommand(program, {
+    configManager,
+    credentialStore,
+    barkClient,
+    promptDriver: deps.promptDriver,
+    agentDetectorOptions: deps.agentDetectorOptions,
+  });
 
   return program;
 }
