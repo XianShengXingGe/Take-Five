@@ -18,41 +18,10 @@ import {
 import type { BarkPushPayload } from '../../types/bark.js';
 import { getLocaleStrings } from '../../i18n/index.js';
 
-export interface PromptDriver {
-  intro: (title: string) => void;
-  outro: (message: string) => void;
-  note: (message: string, title?: string) => void;
-  cancel: (message: string) => void;
-  isCancel: (value: unknown) => boolean;
-  password: (opts: {
-    message: string;
-    validate?: (value: string) => string | undefined;
-    mask?: string;
-  }) => Promise<string | symbol>;
-  select: <T>(opts: {
-    message: string;
-    options: { value: T; label: string; hint?: string }[];
-    initialValue?: T;
-  }) => Promise<T | symbol>;
-  confirm: (opts: { message: string; initialValue?: boolean }) => Promise<boolean | symbol>;
-  spinner: () => {
-    start: (msg?: string) => void;
-    stop: (msg?: string) => void;
-    message: (msg?: string) => void;
-  };
-}
+import type { PromptDriver } from '../prompt-driver.js';
+import { defaultPromptDriver } from '../prompt-driver.js';
 
-const defaultPromptDriver: PromptDriver = {
-  intro: p.intro,
-  outro: p.outro,
-  note: p.note,
-  cancel: p.cancel,
-  isCancel: p.isCancel,
-  password: p.password,
-  select: p.select as PromptDriver['select'],
-  confirm: p.confirm,
-  spinner: p.spinner,
-};
+export type { PromptDriver };
 
 export interface InstallCommandDependencies {
   configManager: ConfigManager;

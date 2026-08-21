@@ -1,5 +1,5 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import {
   DEFAULT_CONFIG,
   DEFAULT_ENABLED_AGENTS,
@@ -41,7 +41,7 @@ export class ConfigManager {
   }
 
   /**
-   * Persists the given TakeFiveConfig to disk.
+   * Persists the given TakeFiveConfig to disk atomically.
    */
   async saveConfig(config: TakeFiveConfig): Promise<void> {
     const dir = dirname(this.configPath);
@@ -49,8 +49,10 @@ export class ConfigManager {
       mkdirSync(dir, { recursive: true });
     }
 
-    const payload = JSON.stringify(config, null, 2);
-    writeFileSync(this.configPath, payload, 'utf-8');
+    const tempPath = `${this.configPath}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}.tmp`;
+    const payload = JSON.stringify(config, null, 2) + '\n';
+    writeFileSync(tempPath, payload, 'utf-8');
+    renameSync(tempPath, this.configPath);
   }
 
   private cloneDefaultConfig(): TakeFiveConfig {

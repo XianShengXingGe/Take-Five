@@ -9,7 +9,13 @@ import type { CredentialStore } from '../types/credential.js';
 import type { AgentDetectorOptions } from '../core/agent-detector.js';
 import { registerNotifyCommand } from './commands/notify.js';
 import { registerTestCommand } from './commands/test.js';
-import { registerInstallCommand, type PromptDriver } from './commands/install.js';
+import { registerInstallCommand } from './commands/install.js';
+import { registerStatusCommand } from './commands/status.js';
+import { registerConfigCommand } from './commands/config.js';
+import { registerRepairCommand } from './commands/repair.js';
+import { registerUninstallCommand } from './commands/uninstall.js';
+import type { PromptDriver } from './prompt-driver.js';
+import type { AgentAdapter } from '../types/adapter.js';
 
 export interface CliDependencies {
   configManager?: ConfigManager;
@@ -18,6 +24,8 @@ export interface CliDependencies {
   barkClient?: BarkClient;
   promptDriver?: PromptDriver;
   agentDetectorOptions?: AgentDetectorOptions;
+  adapters?: AgentAdapter[];
+  env?: Record<string, string | undefined>;
 }
 
 export function createCli(deps: CliDependencies = {}): Command {
@@ -41,6 +49,28 @@ export function createCli(deps: CliDependencies = {}): Command {
     barkClient,
     promptDriver: deps.promptDriver,
     agentDetectorOptions: deps.agentDetectorOptions,
+  });
+  registerStatusCommand(program, {
+    configManager,
+    credentialStore,
+    adapters: deps.adapters,
+    env: deps.env,
+  });
+  registerConfigCommand(program, {
+    configManager,
+    credentialStore,
+    barkClient,
+    promptDriver: deps.promptDriver,
+  });
+  registerRepairCommand(program, {
+    adapters: deps.adapters,
+    env: deps.env,
+  });
+  registerUninstallCommand(program, {
+    credentialStore,
+    adapters: deps.adapters,
+    promptDriver: deps.promptDriver,
+    env: deps.env,
   });
 
   return program;
