@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/icons/antigravity.png" width="96" height="96" alt="Take Five Icon" />
+  <img src="assets/icon.png" width="96" height="96" alt="Take Five Icon" />
 </p>
 
 <h1 align="center">Take Five（片刻）</h1>
