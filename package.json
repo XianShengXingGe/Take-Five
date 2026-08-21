@@ -1,0 +1,55 @@
+{
+  "name": "takefive",
+  "version": "1.0.0",
+  "description": "Smart notification tool for Coding Agents (Codex, Claude Code, OpenCode, Antigravity)",
+  "type": "module",
+  "bin": {
+    "takefive": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "import": "./dist/testing.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "takefive",
+    "coding-agent",
+    "notifications",
+    "bark",
+    "claude-code",
+    "codex",
+    "opencode",
+    "antigravity"
+  ],
+  "author": "XianShengXingGe",
+  "license": "MIT",
+  "dependencies": {
+    "@clack/prompts": "^0.9.1",
+    "commander": "^13.1.0",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.7"
+  }
+}

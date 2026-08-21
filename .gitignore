@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Environment & credentials
+.env
+.env.*
+!.env.example
+
+# Take Five local data
+.takefive/
+*.takefive.bak
+
+# Testing & Coverage
+coverage/
+
+# OS and IDE files
+.DS_Store
+*.log
+.idea/
+.vscode/
