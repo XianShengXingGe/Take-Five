@@ -28,10 +28,11 @@ coverage/
 .vscode/
 
 # Private / internal — not open-sourced
-# Product requirements, agent context, handoff notes, agent tooling
+# Product requirements, agent context, handoff notes, agent tooling, tests, docs
 AGENTS.md
 CONTEXT.md
 HANDOFF.md
 *_PRD.md
-docs/agents/
+docs/
 skills/
+tests/
