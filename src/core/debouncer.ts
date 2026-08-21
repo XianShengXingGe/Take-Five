@@ -57,7 +57,7 @@ export class Debouncer {
     }
 
     cache.timestamps[key] = now;
-    this.writeCache(cache);
+    this.writeCache(cache, now);
 
     return {
       debounced: false,
@@ -86,13 +86,28 @@ export class Debouncer {
     return { version: '1.0.0', timestamps: {} };
   }
 
-  private writeCache(data: DebounceCacheData): void {
+  private writeCache(data: DebounceCacheData, now: number = Date.now()): void {
     try {
       const dir = dirname(this.cachePath);
       if (!existsSync(dir)) {
         mkdirSync(dir, { recursive: true });
       }
-      writeFileSync(this.cachePath, JSON.stringify(data, null, 2), 'utf-8');
+
+      // Prune stale entries older than 24 hours to prevent cache file growth
+      const maxAgeMs = 24 * 60 * 60 * 1000;
+      const prunedTimestamps: Record<string, number> = {};
+      for (const [k, ts] of Object.entries(data.timestamps)) {
+        if (typeof ts === 'number' && now - ts < maxAgeMs) {
+          prunedTimestamps[k] = ts;
+        }
+      }
+
+      const payload: DebounceCacheData = {
+        version: '1.0.0',
+        timestamps: prunedTimestamps,
+      };
+
+      writeFileSync(this.cachePath, JSON.stringify(payload, null, 2), 'utf-8');
     } catch {
       // Inability to write cache shouldn't crash notification dispatch
     }

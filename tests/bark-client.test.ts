@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BarkClient } from '../src/core/bark-client.js';
+import { BarkClient, normalizeBarkUrl } from '../src/core/bark-client.js';
 import { MockBarkDispatcher, createMockBarkPayload } from '../src/testing/index.js';
 
 describe('BarkClient', () => {
@@ -65,5 +65,22 @@ describe('BarkClient', () => {
     await expect(client.push('https://api.day.app/DEMO_KEY/', payload)).rejects.toThrow(
       /ENOTFOUND/,
     );
+  });
+
+  describe('normalizeBarkUrl', () => {
+    it('handles empty or whitespace strings', () => {
+      expect(normalizeBarkUrl('')).toBe('');
+      expect(normalizeBarkUrl('   ')).toBe('');
+    });
+
+    it('prepends default Bark server when bare key is provided', () => {
+      expect(normalizeBarkUrl('my_device_key')).toBe('https://api.day.app/my_device_key');
+      expect(normalizeBarkUrl('my_device_key/')).toBe('https://api.day.app/my_device_key/');
+    });
+
+    it('preserves full http or https URLs', () => {
+      expect(normalizeBarkUrl('https://api.day.app/custom_key/')).toBe('https://api.day.app/custom_key/');
+      expect(normalizeBarkUrl('http://192.168.1.100:8080/push')).toBe('http://192.168.1.100:8080/push');
+    });
   });
 });

@@ -1,5 +1,3 @@
-import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { Command } from 'commander';
 import { ConfigManager } from '../core/config-manager.js';
 import { NotificationDispatcher } from '../core/notification-dispatcher.js';
@@ -17,6 +15,8 @@ import { registerUninstallCommand } from './commands/uninstall.js';
 import type { PromptDriver } from './prompt-driver.js';
 import type { AgentAdapter } from '../types/adapter.js';
 
+import { detectLanguage, getLocaleStrings } from '../i18n/index.js';
+
 export interface CliDependencies {
   configManager?: ConfigManager;
   dispatcher?: NotificationDispatcher;
@@ -30,10 +30,12 @@ export interface CliDependencies {
 
 export function createCli(deps: CliDependencies = {}): Command {
   const program = new Command();
+  const lang = detectLanguage(undefined, deps.env);
+  const dict = getLocaleStrings(lang);
 
   program
     .name('takefive')
-    .description('Smart notification tool for Coding Agents (Codex, Claude Code, OpenCode, Antigravity)')
+    .description(dict.cli.description)
     .version('1.0.0');
 
   const configManager = deps.configManager ?? new ConfigManager();
@@ -41,14 +43,16 @@ export function createCli(deps: CliDependencies = {}): Command {
   const barkClient = deps.barkClient ?? new BarkClient();
   const dispatcher = deps.dispatcher ?? new NotificationDispatcher({ configManager, credentialStore, barkClient });
 
-  registerNotifyCommand(program, dispatcher);
-  registerTestCommand(program, dispatcher);
+  registerNotifyCommand(program, dispatcher, deps.env);
+  registerTestCommand(program, dispatcher, deps.env);
   registerInstallCommand(program, {
     configManager,
     credentialStore,
     barkClient,
     promptDriver: deps.promptDriver,
     agentDetectorOptions: deps.agentDetectorOptions,
+    adapters: deps.adapters,
+    env: deps.env,
   });
   registerStatusCommand(program, {
     configManager,
@@ -79,20 +83,4 @@ export function createCli(deps: CliDependencies = {}): Command {
 export async function runCli(argv: string[] = process.argv, deps: CliDependencies = {}): Promise<void> {
   const program = createCli(deps);
   await program.parseAsync(argv);
-}
-
-const isDirectExecution = (): boolean => {
-  if (!process.argv[1]) return false;
-  try {
-    return resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
-  } catch {
-    return false;
-  }
-};
-
-if (isDirectExecution()) {
-  runCli().catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });
 }

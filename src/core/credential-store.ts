@@ -37,6 +37,10 @@ const defaultRunner: CommandRunner = async (file, args) => {
   }
 };
 
+function escapePsString(str: string): string {
+  return str.replace(/[`"$]/g, '`$&');
+}
+
 export interface OsCredentialStoreOptions {
   platform?: NodeJS.Platform;
   runner?: CommandRunner;
@@ -78,12 +82,16 @@ export class OsCredentialStore implements CredentialStore {
     }
 
     if (this.platform === 'win32') {
-      const target = `${this.serviceName}:${this.accountName}`;
+      const target = escapePsString(`${this.serviceName}:${this.accountName}`);
+      const user = escapePsString(this.accountName);
       const psScript = `
         $target = "${target}";
         Add-Type -AssemblyName System.Security;
-        $cred = [Windows.Security.Credentials.PasswordVault,Windows.Security.Credentials,ContentType=WindowsRuntime]::new().Retrieve($target, "${this.accountName}");
-        if ($cred) { $cred.Password }
+        try {
+          $vault = [Windows.Security.Credentials.PasswordVault,Windows.Security.Credentials,ContentType=WindowsRuntime]::new();
+          $cred = $vault.Retrieve($target, "${user}");
+          if ($cred) { $cred.Password }
+        } catch {}
       `.trim();
 
       const result = await this.runner('powershell', [
@@ -122,11 +130,13 @@ export class OsCredentialStore implements CredentialStore {
     }
 
     if (this.platform === 'win32') {
-      const target = `${this.serviceName}:${this.accountName}`;
+      const target = escapePsString(`${this.serviceName}:${this.accountName}`);
+      const user = escapePsString(this.accountName);
+      const safeUrl = escapePsString(url);
       const psScript = `
         $target = "${target}";
-        $user = "${this.accountName}";
-        $url = "${url}";
+        $user = "${user}";
+        $url = "${safeUrl}";
         Add-Type -AssemblyName System.Security;
         $vault = [Windows.Security.Credentials.PasswordVault,Windows.Security.Credentials,ContentType=WindowsRuntime]::new();
         try {
@@ -166,13 +176,15 @@ export class OsCredentialStore implements CredentialStore {
     }
 
     if (this.platform === 'win32') {
-      const target = `${this.serviceName}:${this.accountName}`;
+      const target = escapePsString(`${this.serviceName}:${this.accountName}`);
+      const user = escapePsString(this.accountName);
       const psScript = `
         $target = "${target}";
+        $user = "${user}";
         Add-Type -AssemblyName System.Security;
         $vault = [Windows.Security.Credentials.PasswordVault,Windows.Security.Credentials,ContentType=WindowsRuntime]::new();
         try {
-          $cred = $vault.Retrieve($target, "${this.accountName}");
+          $cred = $vault.Retrieve($target, $user);
           if ($cred) { $vault.Remove($cred); }
         } catch {}
       `.trim();

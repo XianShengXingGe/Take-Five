@@ -1,5 +1,17 @@
 import type { BarkPushPayload, BarkPushResponse } from '../types/bark.js';
 
+/**
+ * Normalizes Bark server URL or device key into a fully qualified Bark push endpoint URL.
+ */
+export function normalizeBarkUrl(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) return '';
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+  return `https://api.day.app/${trimmed}`;
+}
+
 export interface BarkClientOptions {
   fetchImpl?: typeof fetch;
   timeoutMs?: number;

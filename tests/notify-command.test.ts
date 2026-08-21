@@ -193,4 +193,97 @@ describe('CLI takefive notify', () => {
 
     expect(duration).toBeLessThan(150);
   });
+
+  it('correctly resolves project name from Antigravity workspacePaths instead of cwd config', async () => {
+    const { configManager, dispatcher } = createTestCli('zh-CN');
+    await configManager.saveConfig(createMockConfig({ language: 'zh-CN' }));
+
+    const mockPayload = JSON.stringify({
+      workspacePaths: ['/Users/xreal/Workspace/MyAwesomeProject'],
+      fullyIdle: true,
+      terminationReason: 'model_stop',
+    });
+
+    const program = new (await import('commander')).Command();
+    const { registerNotifyCommand } = await import('../src/cli/commands/notify.js');
+    registerNotifyCommand(program, dispatcher, undefined, async () => mockPayload);
+
+    await program.parseAsync([
+      'node',
+      'takefive',
+      'notify',
+      '--agent',
+      'antigravity',
+      '--event',
+      'task_completed',
+    ]);
+
+    const payload = mockBark.getLastPayload();
+    expect(payload).toBeDefined();
+    expect(payload?.subtitle).toBe('Antigravity · MyAwesomeProject');
+    expect(payload?.group).toBe('MyAwesomeProject');
+  });
+
+  it('suppresses task_completed notification when Antigravity fullyIdle is false', async () => {
+    const { configManager, dispatcher } = createTestCli('zh-CN');
+    await configManager.saveConfig(createMockConfig({ language: 'zh-CN' }));
+
+    const mockPayload = JSON.stringify({
+      workspacePaths: ['/Users/xreal/Workspace/MyProject'],
+      fullyIdle: false, // subtasks still running
+      terminationReason: 'model_stop',
+    });
+
+    const program = new (await import('commander')).Command();
+    const { registerNotifyCommand } = await import('../src/cli/commands/notify.js');
+    registerNotifyCommand(program, dispatcher, undefined, async () => mockPayload);
+
+    await program.parseAsync([
+      'node',
+      'takefive',
+      'notify',
+      '--agent',
+      'antigravity',
+      '--event',
+      'task_completed',
+    ]);
+
+    // Should NOT have sent a push notification
+    expect(mockBark.getRequestCount()).toBe(0);
+  });
+
+  it('translates ask_question toolCall in Antigravity hook payload to waiting_input event', async () => {
+    const { configManager, dispatcher } = createTestCli('zh-CN');
+    await configManager.saveConfig(createMockConfig({ language: 'zh-CN' }));
+
+    const mockPayload = JSON.stringify({
+      workspacePaths: ['/Users/xreal/Workspace/CoolApp'],
+      toolCall: {
+        name: 'ask_question',
+        args: {
+          questions: [{ question: 'Do you want to proceed with migration?' }],
+        },
+      },
+    });
+
+    const program = new (await import('commander')).Command();
+    const { registerNotifyCommand } = await import('../src/cli/commands/notify.js');
+    registerNotifyCommand(program, dispatcher, undefined, async () => mockPayload);
+
+    await program.parseAsync([
+      'node',
+      'takefive',
+      'notify',
+      '--agent',
+      'antigravity',
+      '--event',
+      'waiting_input',
+    ]);
+
+    const payload = mockBark.getLastPayload();
+    expect(payload).toBeDefined();
+    expect(payload?.title).toBe('⏳ 等待输入');
+    expect(payload?.subtitle).toBe('Antigravity · CoolApp');
+    expect(payload?.body).toBe('Do you want to proceed with migration?');
+  });
 });

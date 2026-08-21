@@ -1,22 +1,22 @@
 import type { Command } from 'commander';
-import * as p from '@clack/prompts';
 import pc from 'picocolors';
-import {
-  detectInstalledAgents,
-  type AgentDetectorOptions,
-} from '../../core/agent-detector.js';
-import type { BarkClient } from '../../core/bark-client.js';
+import { detectInstalledAgents, type AgentDetectorOptions } from '../../core/agent-detector.js';
+import { BarkClient, normalizeBarkUrl } from '../../core/bark-client.js';
 import type { ConfigManager } from '../../core/config-manager.js';
 import type { CredentialStore } from '../../types/credential.js';
-import type { ConfigLanguage, TakeFiveConfig } from '../../types/config.js';
 import {
   DEFAULT_CONFIG,
   DEFAULT_ENABLED_AGENTS,
   DEFAULT_EVENT_RULES,
   DEFAULT_ICONS,
+  isConfigLanguage,
+  type ConfigLanguage,
+  type TakeFiveConfig,
 } from '../../types/config.js';
 import type { BarkPushPayload } from '../../types/bark.js';
-import { getLocaleStrings } from '../../i18n/index.js';
+import { detectLanguage, getLocaleStrings } from '../../i18n/index.js';
+import { createAllAdapters } from '../../adapters/index.js';
+import type { AgentAdapter } from '../../types/adapter.js';
 
 import type { PromptDriver } from '../prompt-driver.js';
 import { defaultPromptDriver } from '../prompt-driver.js';
@@ -29,51 +29,42 @@ export interface InstallCommandDependencies {
   barkClient: BarkClient;
   promptDriver?: PromptDriver;
   agentDetectorOptions?: AgentDetectorOptions;
-}
-
-/**
- * Normalizes Bark server URL or device key into a fully qualified Bark push endpoint URL.
- */
-export function normalizeBarkUrl(input: string): string {
-  const trimmed = input.trim();
-  if (!trimmed) return '';
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-    return trimmed;
-  }
-  return `https://api.day.app/${trimmed}`;
+  adapters?: AgentAdapter[];
+  env?: Record<string, string | undefined>;
 }
 
 export function registerInstallCommand(
   program: Command,
   deps: InstallCommandDependencies,
 ): void {
+  const activeLang = detectLanguage(undefined, deps.env);
+  const dict = getLocaleStrings(activeLang);
+
   program
     .command('install')
-    .description('Interactive setup wizard to configure Bark credentials, agents, and default rules')
+    .description(dict.cli.commands.install)
     .action(async () => {
       const prompt = deps.promptDriver ?? defaultPromptDriver;
+      let activeLang = detectLanguage(undefined, deps.env);
+      let dict = getLocaleStrings(activeLang);
+      let ins = dict.cli.install;
 
-      prompt.intro(pc.bgCyan(pc.black(' Take Five (片刻) - Setup Wizard ')));
+      prompt.intro(pc.bgCyan(pc.black(` ${ins.intro} `)));
 
       // Step 1: Detect available agent environments
       const s = prompt.spinner();
-      s.start('Scanning for installed coding agents...');
+      s.start(ins.scanning);
 
       const detected = detectInstalledAgents(deps.agentDetectorOptions);
-      s.stop('Agent environments scanned.');
-
-      const zhDict = getLocaleStrings('zh-CN');
+      s.stop(ins.scanned);
 
       if (detected.hasAnyInstalled) {
         const detectedList = detected.installedAgents
-          .map((agent) => `${zhDict.agents[agent] ?? agent} (${detected[agent].path})`)
+          .map((agent) => `${dict.agents[agent] ?? agent} (${detected[agent].path})`)
           .join('\n• ');
-        prompt.note(`• ${detectedList}`, 'Detected Coding Agents');
+        prompt.note(`• ${detectedList}`, ins.detectedTitle);
       } else {
-        prompt.note(
-          'No pre-existing agent configurations found in home directory.\nDefault notification hooks will be configured for all supported agents.',
-          'Coding Agents',
-        );
+        prompt.note(ins.noAgentsDetected, ins.noAgentsNoteTitle);
       }
 
       // Step 2: Prompt Bark URL & verify mobile connectivity
@@ -82,17 +73,17 @@ export function registerInstallCommand(
       while (true) {
         if (!currentUrl) {
           const rawInput = await prompt.password({
-            message: 'Enter your Bark server URL or device push key (e.g. https://api.day.app/YOUR_KEY/):',
+            message: ins.barkPrompt,
             validate: (value) => {
               if (!value || value.trim().length === 0) {
-                return 'Bark URL or device key cannot be empty.';
+                return ins.barkEmptyError;
               }
               return undefined;
             },
           });
 
           if (prompt.isCancel(rawInput)) {
-            prompt.cancel('Installation cancelled.');
+            prompt.cancel(ins.cancelled);
             return;
           }
 
@@ -100,11 +91,11 @@ export function registerInstallCommand(
         }
 
         // Send test notification
-        s.start('Sending test push notification to verify mobile connectivity...');
+        s.start(ins.testingBark);
         const testPayload: BarkPushPayload = {
           title: '🎉 Take Five (片刻)',
-          subtitle: 'Bark Setup Verification',
-          body: 'Take Five is now connected to your device! Notifications are ready.',
+          subtitle: activeLang === 'zh-CN' ? 'Bark 连通性测试' : 'Bark Setup Verification',
+          body: activeLang === 'zh-CN' ? 'Take Five 已成功连接到您的设备！' : 'Take Five is now connected to your device! Notifications are ready.',
           group: 'Take-Five',
           level: 'active',
           icon: DEFAULT_ICONS.claude,
@@ -112,25 +103,25 @@ export function registerInstallCommand(
 
         try {
           await deps.barkClient.push(currentUrl, testPayload);
-          s.stop(pc.green('✔ Test notification verified successfully on your device! 📱'));
+          s.stop(pc.green(ins.barkSuccess));
           await deps.credentialStore.setBarkUrl(currentUrl);
           break;
         } catch (err: unknown) {
           const errorMsg = err instanceof Error ? err.message : String(err);
-          s.stop(pc.red(`✖ Failed to reach Bark server: ${errorMsg}`));
+          s.stop(pc.red(`${ins.barkFail} ${errorMsg}`));
 
           const choice = await prompt.select({
-            message: 'Bark notification dispatch failed. How would you like to proceed?',
+            message: ins.failPrompt,
             options: [
-              { value: 'retry_input', label: 'Re-enter Bark URL / Device Key' },
-              { value: 'retry_send', label: 'Retry sending test notification' },
-              { value: 'force_save', label: 'Save URL anyway (skip connectivity test)' },
-              { value: 'cancel', label: 'Cancel installation' },
+              { value: 'retry_input', label: ins.retryInput },
+              { value: 'retry_send', label: ins.retrySend },
+              { value: 'force_save', label: ins.forceSave },
+              { value: 'cancel', label: ins.cancelChoice },
             ],
           });
 
           if (prompt.isCancel(choice) || choice === 'cancel') {
-            prompt.cancel('Installation cancelled.');
+            prompt.cancel(ins.cancelled);
             return;
           }
 
@@ -152,9 +143,9 @@ export function registerInstallCommand(
 
       // Step 3: Notification language preferences & rules confirmation
       const languageChoice = await prompt.select<ConfigLanguage>({
-        message: 'Select preferred notification & CLI language:',
+        message: ins.languagePrompt,
         options: [
-          { value: 'system', label: 'System Default (Auto-detect from OS locale)' },
+          { value: 'system', label: activeLang === 'zh-CN' ? '系统默认 (自动跟随操作系统语言)' : 'System Default (Auto-detect from OS locale)' },
           { value: 'zh-CN', label: '简体中文 (Simplified Chinese)' },
           { value: 'en', label: 'English' },
         ],
@@ -162,8 +153,14 @@ export function registerInstallCommand(
       });
 
       if (prompt.isCancel(languageChoice) || typeof languageChoice === 'symbol') {
-        prompt.cancel('Installation cancelled.');
+        prompt.cancel(ins.cancelled);
         return;
+      }
+
+      if (isConfigLanguage(languageChoice) && languageChoice !== 'system') {
+        activeLang = languageChoice;
+        dict = getLocaleStrings(activeLang);
+        ins = dict.cli.install;
       }
 
       // Display and confirm default notification rules
@@ -172,21 +169,21 @@ export function registerInstallCommand(
           '• waiting_input (等待输入): timeSensitive (重要提醒)\n' +
           '• waiting_permission (等待授权): timeSensitive (重要提醒)\n' +
           '• task_failed (任务失败): timeSensitive (重要提醒)',
-        'Default Notification Rules',
+        ins.defaultRulesTitle,
       );
 
       const confirmRules = await prompt.confirm({
-        message: 'Confirm default notification rules and proceed with configuration?',
+        message: ins.confirmRulesPrompt,
         initialValue: true,
       });
 
       if (prompt.isCancel(confirmRules) || confirmRules === false) {
-        prompt.cancel('Installation cancelled.');
+        prompt.cancel(ins.cancelled);
         return;
       }
 
       // Step 4: Initialize ~/.takefive/config.json
-      s.start('Initializing configuration at ~/.takefive/config.json...');
+      s.start(ins.savingConfig);
 
       const enabledAgents = { ...DEFAULT_ENABLED_AGENTS };
       if (detected.hasAnyInstalled) {
@@ -197,7 +194,7 @@ export function registerInstallCommand(
 
       const newConfig: TakeFiveConfig = {
         version: '1.0.0',
-        language: languageChoice as ConfigLanguage,
+        language: isConfigLanguage(languageChoice) ? languageChoice : 'system',
         debounceSeconds: DEFAULT_CONFIG.debounceSeconds,
         icons: { ...DEFAULT_ICONS },
         events: {
@@ -210,15 +207,28 @@ export function registerInstallCommand(
       };
 
       await deps.configManager.saveConfig(newConfig);
-      s.stop('Configuration file initialized.');
+      s.stop(ins.savedConfig);
 
-      prompt.outro(
-        pc.bold(
-          pc.green(
-            '✨ Take Five installation completed successfully!\n\n' +
-              `Run ${pc.cyan('takefive test')} to trigger sample mobile notifications on demand.`,
-          ),
-        ),
-      );
+      // Step 5: Inject lifecycle notification hooks into enabled & detected agents
+      const targetAdapters = deps.adapters ?? createAllAdapters();
+      const injectedList: string[] = [];
+
+      for (const adapter of targetAdapters) {
+        if (enabledAgents[adapter.id] !== false) {
+          const res = await adapter.install({ env: deps.env });
+          if (res.success) {
+            injectedList.push(`${dict.agents[adapter.id] ?? adapter.displayName} (${res.configPath})`);
+          }
+        }
+      }
+
+      if (injectedList.length > 0) {
+        prompt.note(
+          injectedList.map((item) => `• ${item}`).join('\n'),
+          activeLang === 'zh-CN' ? '已自动注入通知钩子' : 'Notification Hooks Injected',
+        );
+      }
+
+      prompt.outro(pc.bold(pc.green(ins.outro)));
     });
 }

@@ -36,7 +36,7 @@ export function createMockBarkPayload(
     body: '恭喜！任务已完成',
     group: 'Take-Five',
     level: 'active',
-    icon: 'https://raw.githubusercontent.com/XianShengXingGe/Take-Five/main/assets/icons/claude.png',
+    icon: 'https://cdn.jsdelivr.net/gh/XianShengXingGe/Take-Five@main/assets/icons/claude.png',
     ...overrides,
   };
 }

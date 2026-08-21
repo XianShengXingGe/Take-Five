@@ -13,6 +13,7 @@ import {
   type UnifiedEventType,
 } from '../types/event.js';
 import { BaseAdapter } from './base-adapter.js';
+import { mergeHookCommand, stripHookCommand } from './hook-utils.js';
 
 export const OPENCODE_HOOK_COMMANDS = {
   task_completed: 'takefive notify --agent opencode --event task_completed',
@@ -20,38 +21,6 @@ export const OPENCODE_HOOK_COMMANDS = {
   waiting_permission: 'takefive notify --agent opencode --event waiting_permission',
   task_failed: 'takefive notify --agent opencode --event task_failed',
 } as const;
-
-/**
- * Merges a Take Five hook command non-destructively with any pre-existing user command.
- */
-function mergeHookCommand(existing: unknown, takeFiveCmd: string): string {
-  if (typeof existing === 'string') {
-    const trimmed = existing.trim();
-    if (!trimmed) {
-      return takeFiveCmd;
-    }
-    if (trimmed.includes(takeFiveCmd)) {
-      return trimmed;
-    }
-    return `${trimmed} && ${takeFiveCmd}`;
-  }
-  return takeFiveCmd;
-}
-
-/**
- * Surgically removes Take Five hook command from a chained command string.
- */
-function stripHookCommand(current: unknown, marker = 'takefive notify'): string | undefined {
-  if (typeof current !== 'string') {
-    return undefined;
-  }
-  const parts = current
-    .split('&&')
-    .map((p) => p.trim())
-    .filter((p) => p.length > 0 && !p.includes(marker));
-
-  return parts.length > 0 ? parts.join(' && ') : undefined;
-}
 
 /**
  * Adapter for OpenCode CLI integration.

@@ -232,4 +232,36 @@ describe('CLI takefive install', () => {
     expect(await mockCreds.getBarkUrl()).toBeNull();
     expect(existsSync(configPath)).toBe(false);
   });
+
+  it('injects notification hooks into detected agent configs during install', async () => {
+    const { driver } = createMockPromptDriver({
+      barkUrl: 'https://api.day.app/VALID_BARK_KEY/',
+      language: 'zh-CN',
+    });
+
+    const configManager = new ConfigManager({ configPath });
+    const barkClient = new BarkClient({ fetchImpl: mockBark.createMockFetch() });
+
+    const cli = createCli({
+      configManager,
+      credentialStore: mockCreds,
+      barkClient,
+      promptDriver: driver,
+      agentDetectorOptions: { homedir: homeDir },
+      env: { HOME: homeDir },
+    });
+
+    await cli.parseAsync(['node', 'takefive', 'install']);
+
+    // Assert that agent config files were created with injected hooks
+    const claudeConfigPath = join(homeDir, '.claude', 'config.json');
+    expect(existsSync(claudeConfigPath)).toBe(true);
+    const claudeConfig = JSON.parse(readFileSync(claudeConfigPath, 'utf-8'));
+    expect(claudeConfig.hooks.task_completed).toContain('takefive notify --agent claude');
+
+    const antigravityConfigPath = join(homeDir, '.gemini', 'config', 'hooks.json');
+    expect(existsSync(antigravityConfigPath)).toBe(true);
+    const antigravityConfig = JSON.parse(readFileSync(antigravityConfigPath, 'utf-8'));
+    expect(antigravityConfig.takefive.enabled).toBe(true);
+  });
 });

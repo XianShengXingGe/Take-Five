@@ -1,14 +1,14 @@
 import type { Command } from 'commander';
 import pc from 'picocolors';
-import type { BarkClient } from '../../core/bark-client.js';
+import { type BarkClient, normalizeBarkUrl } from '../../core/bark-client.js';
 import type { ConfigManager } from '../../core/config-manager.js';
 import type { CredentialStore } from '../../types/credential.js';
 import type { PromptDriver } from '../prompt-driver.js';
 import { defaultPromptDriver } from '../prompt-driver.js';
-import { normalizeBarkUrl } from './install.js';
 import {
   DEFAULT_CONFIG,
   DEFAULT_ICONS,
+  isConfigLanguage,
   type ConfigLanguage,
   type EventRule,
   type TakeFiveConfig,
@@ -21,6 +21,7 @@ import {
   type UnifiedEventType,
 } from '../../types/event.js';
 import type { BarkPushPayload } from '../../types/bark.js';
+import { detectLanguage, getLocaleStrings } from '../../i18n/index.js';
 
 export interface ConfigCommandDependencies {
   configManager: ConfigManager;
@@ -33,53 +34,62 @@ export function registerConfigCommand(
   program: Command,
   deps: ConfigCommandDependencies,
 ): void {
+  const lang = detectLanguage();
+  const dict = getLocaleStrings(lang);
+
   program
     .command('config')
-    .description('Interactive configuration menu for Bark credentials, notification rules, and preferences')
+    .description(dict.cli.commands.config)
     .action(async () => {
       const prompt = deps.promptDriver ?? defaultPromptDriver;
 
-      prompt.intro(pc.bgCyan(pc.black(' Take Five (片刻) · Configuration ')));
-
       let config: TakeFiveConfig = await deps.configManager.loadConfig();
-      let hasChanges = false;
+      let activeLang = detectLanguage(config.language);
+      let dict = getLocaleStrings(activeLang);
+      let c = dict.cli.config;
+
+      prompt.intro(pc.bgCyan(pc.black(` ${c.intro} `)));
 
       while (true) {
+        activeLang = detectLanguage(config.language);
+        dict = getLocaleStrings(activeLang);
+        c = dict.cli.config;
+
         const choice = await prompt.select({
-          message: 'What would you like to configure?',
+          message: c.menuPrompt,
           options: [
-            { value: 'bark_url', label: '📱 Bark Server URL / Device Key' },
+            { value: 'bark_url', label: c.barkUrlOption },
             {
               value: 'language',
-              label: `🌐 Active Language (${config.language})`,
+              label: `${c.langOption} (${config.language})`,
             },
             {
               value: 'debounce',
-              label: `⏱  Debounce Cooldown (${config.debounceSeconds}s)`,
+              label: `${c.debounceOption} (${config.debounceSeconds}s)`,
             },
-            { value: 'event_rules', label: '🔔 Per-Event Notification Rules' },
-            { value: 'agents', label: '🤖 Enabled Coding Agents' },
-            { value: 'reset', label: '🔄 Reset All to Defaults' },
-            { value: 'save_exit', label: '💾 Save and Exit' },
-            { value: 'cancel', label: '❌ Cancel (Discard Unsaved Changes)' },
+            { value: 'event_rules', label: c.rulesOption },
+            { value: 'agents', label: c.agentsOption },
+            { value: 'reset', label: c.resetOption },
+            { value: 'save_exit', label: c.saveOption },
+            { value: 'cancel', label: c.cancelOption },
           ],
         });
 
         if (prompt.isCancel(choice) || choice === 'cancel') {
-          prompt.outro(pc.dim('Configuration cancelled. No changes were saved.'));
+          prompt.outro(pc.dim(c.cancelledOutro));
           return;
         }
 
         if (choice === 'save_exit') {
           await deps.configManager.saveConfig(config);
-          prompt.outro(pc.green('✔ Configuration saved successfully to ~/.takefive/config.json!'));
+          prompt.outro(pc.green(c.saveSuccessOutro));
           return;
         }
 
         if (choice === 'bark_url') {
           const currentUrl = (await deps.credentialStore.getBarkUrl()) ?? '';
           const rawInput = await prompt.password({
-            message: `Enter new Bark server URL or device push key (current: ${currentUrl ? 'configured' : 'none'}):`,
+            message: `${c.currentBarkPrompt} (${currentUrl ? 'configured' : 'none'}):`,
             validate: (value) => {
               if (!value || value.trim().length === 0) {
                 return 'Bark URL or device key cannot be empty.';
@@ -92,7 +102,7 @@ export function registerConfigCommand(
 
           const normalizedUrl = normalizeBarkUrl(String(rawInput));
           const spinner = prompt.spinner();
-          spinner.start('Verifying Bark push endpoint...');
+          spinner.start(c.barkTesting);
 
           const testPayload: BarkPushPayload = {
             title: 'Take Five (片刻)',
@@ -107,19 +117,19 @@ export function registerConfigCommand(
             await deps.barkClient.push(normalizedUrl, testPayload);
             spinner.stop(pc.green('✔ Test notification verified on your device!'));
             await deps.credentialStore.setBarkUrl(normalizedUrl);
-            prompt.note('Bark credential updated securely in OS keychain.', 'Success');
+            prompt.note(c.barkSuccessNote, 'Success');
           } catch (err: unknown) {
             const errorMsg = err instanceof Error ? err.message : String(err);
             spinner.stop(pc.red(`✖ Failed to reach Bark server: ${errorMsg}`));
 
             const forceSave = await prompt.confirm({
-              message: 'Save Bark URL anyway despite test failure?',
+              message: c.barkFailConfirm,
               initialValue: false,
             });
 
             if (!prompt.isCancel(forceSave) && forceSave === true) {
               await deps.credentialStore.setBarkUrl(normalizedUrl);
-              prompt.note('Bark credential saved without verification.', 'Saved');
+              prompt.note(c.barkForceSaved, 'Saved');
             }
           }
           continue;
@@ -127,9 +137,9 @@ export function registerConfigCommand(
 
         if (choice === 'language') {
           const langChoice = await prompt.select<ConfigLanguage>({
-            message: 'Select preferred notification and CLI language:',
+            message: c.langPrompt,
             options: [
-              { value: 'system', label: 'System Default (Auto-detect OS locale)' },
+              { value: 'system', label: activeLang === 'zh-CN' ? '系统默认 (自动跟随操作系统语言)' : 'System Default (Auto-detect OS locale)' },
               { value: 'zh-CN', label: '简体中文 (Simplified Chinese)' },
               { value: 'en', label: 'English' },
             ],
@@ -137,15 +147,16 @@ export function registerConfigCommand(
           });
 
           if (prompt.isCancel(langChoice)) continue;
-          config.language = langChoice as ConfigLanguage;
-          hasChanges = true;
-          prompt.note(`Language updated to "${config.language}".`, 'Updated');
+          if (isConfigLanguage(langChoice)) {
+            config.language = langChoice;
+          }
+          prompt.note(`${c.langUpdated} "${config.language}".`, 'Updated');
           continue;
         }
 
         if (choice === 'debounce') {
           const debounceInput = await prompt.text({
-            message: 'Enter debounce cooldown window in seconds (default: 2):',
+            message: c.debouncePrompt,
             defaultValue: String(config.debounceSeconds),
             validate: (val) => {
               const num = Number(val);
@@ -158,26 +169,23 @@ export function registerConfigCommand(
 
           if (prompt.isCancel(debounceInput)) continue;
           config.debounceSeconds = Number(debounceInput);
-          hasChanges = true;
-          prompt.note(`Debounce cooldown set to ${config.debounceSeconds}s.`, 'Updated');
+          prompt.note(`${c.debounceUpdated} ${config.debounceSeconds}s.`, 'Updated');
           continue;
         }
 
         if (choice === 'agents') {
-          await configureAgentsMenu(config, prompt);
-          hasChanges = true;
+          await configureAgentsMenu(config, prompt, dict);
           continue;
         }
 
         if (choice === 'event_rules') {
-          await configureEventRulesMenu(config, prompt);
-          hasChanges = true;
+          await configureEventRulesMenu(config, prompt, dict);
           continue;
         }
 
         if (choice === 'reset') {
           const confirmReset = await prompt.confirm({
-            message: 'Reset all configuration to factory defaults?',
+            message: c.resetConfirm,
             initialValue: false,
           });
 
@@ -195,8 +203,7 @@ export function registerConfigCommand(
               },
               enabledAgents: { ...DEFAULT_CONFIG.enabledAgents },
             };
-            hasChanges = true;
-            prompt.note('Configuration reset to defaults in memory.', 'Reset');
+            prompt.note(c.resetDone, 'Reset');
           }
           continue;
         }
@@ -207,20 +214,22 @@ export function registerConfigCommand(
 async function configureAgentsMenu(
   config: TakeFiveConfig,
   prompt: PromptDriver,
+  dict: ReturnType<typeof getLocaleStrings>,
 ): Promise<void> {
   while (true) {
     const options = SUPPORTED_AGENTS.map((agent) => {
       const isEnabled = config.enabledAgents[agent] ?? true;
       const statusText = isEnabled ? pc.green('ON') : pc.red('OFF');
+      const displayName = dict.agents[agent] ?? agent;
       return {
         value: agent,
-        label: `${agent.padEnd(12)} [${statusText}]`,
+        label: `${displayName} (${agent}) [${statusText}]`,
       };
     });
 
     const agentChoice = await prompt.select<string>({
-      message: 'Select an agent to toggle ON/OFF, or Back:',
-      options: [...options, { value: 'back', label: '⬅ Back to main menu' }],
+      message: dict.cli.config.toggleAgentsPrompt,
+      options: [...options, { value: 'back', label: dict.cli.config.backOption }],
     });
 
     if (prompt.isCancel(agentChoice) || agentChoice === 'back') {
@@ -235,21 +244,23 @@ async function configureAgentsMenu(
 async function configureEventRulesMenu(
   config: TakeFiveConfig,
   prompt: PromptDriver,
+  dict: ReturnType<typeof getLocaleStrings>,
 ): Promise<void> {
   while (true) {
     const options = UNIFIED_EVENT_TYPES.map((eventType) => {
       const rule = config.events[eventType] ?? { enabled: true, level: 'active' };
       const statusText = rule.enabled ? pc.green('ON ') : pc.red('OFF');
       const levelText = pc.dim(`(${rule.level})`);
+      const eventTitle = dict.events[eventType]?.title ?? eventType;
       return {
         value: eventType,
-        label: `${eventType.padEnd(20)} [${statusText}] ${levelText}`,
+        label: `${eventTitle.padEnd(16)} [${statusText}] ${levelText}`,
       };
     });
 
     const eventChoice = await prompt.select<string>({
-      message: 'Select an event type to configure, or Back:',
-      options: [...options, { value: 'back', label: '⬅ Back to main menu' }],
+      message: dict.cli.config.toggleEventsPrompt,
+      options: [...options, { value: 'back', label: dict.cli.config.backOption }],
     });
 
     if (prompt.isCancel(eventChoice) || eventChoice === 'back') {
@@ -259,7 +270,7 @@ async function configureEventRulesMenu(
     const eventType = eventChoice as UnifiedEventType;
     const rule: EventRule = config.events[eventType] ?? { enabled: true, level: 'active' };
 
-    await configureSingleEventRule(eventType, rule, prompt);
+    await configureSingleEventRule(eventType, rule, prompt, dict);
     config.events[eventType] = rule;
   }
 }
@@ -268,28 +279,30 @@ async function configureSingleEventRule(
   eventType: UnifiedEventType,
   rule: EventRule,
   prompt: PromptDriver,
+  dict: ReturnType<typeof getLocaleStrings>,
 ): Promise<void> {
+  const c = dict.cli.config;
   while (true) {
     const editChoice = await prompt.select({
-      message: `Configure rules for event "${eventType}":`,
+      message: `${c.editEventRulePrompt} "${dict.events[eventType]?.title ?? eventType}":`,
       options: [
         {
           value: 'toggle',
-          label: `Enabled status: ${rule.enabled ? pc.green('Enabled') : pc.red('Disabled')}`,
+          label: `${c.editEventRuleToggle}: ${rule.enabled ? pc.green('ON') : pc.red('OFF')}`,
         },
         {
           value: 'level',
-          label: `Urgency Level: ${pc.cyan(rule.level)}`,
+          label: `${c.editEventRuleLevel}: ${pc.cyan(rule.level)}`,
         },
         {
           value: 'title',
-          label: `Custom Title: ${rule.title ? pc.cyan(`"${rule.title}"`) : pc.dim('None (default template)')}`,
+          label: `${c.editEventRuleTitle}: ${rule.title ? pc.cyan(`"${rule.title}"`) : pc.dim('None (default template)')}`,
         },
         {
           value: 'body',
-          label: `Custom Body: ${rule.body ? pc.cyan(`"${rule.body}"`) : pc.dim('None (default template)')}`,
+          label: `${c.editEventRuleBody}: ${rule.body ? pc.cyan(`"${rule.body}"`) : pc.dim('None (default template)')}`,
         },
-        { value: 'back', label: '⬅ Back to events list' },
+        { value: 'back', label: c.backOption },
       ],
     });
 
@@ -347,3 +360,4 @@ async function configureSingleEventRule(
     }
   }
 }
+

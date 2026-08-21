@@ -1,5 +1,8 @@
+import { existsSync, statSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
+  CONFIG_LANGUAGES,
   DEFAULT_CONFIG,
   DEFAULT_ENABLED_AGENTS,
   DEFAULT_EVENT_RULES,
@@ -9,6 +12,7 @@ import {
   NOTIFICATION_LEVELS,
   SUPPORTED_AGENTS,
   UNIFIED_EVENT_TYPES,
+  isConfigLanguage,
   isNotificationLevel,
   isSupportedAgent,
   isUnifiedEventType,
@@ -53,8 +57,17 @@ describe('Domain Types and Constants', () => {
   it('provides default icon CDN URLs for each supported agent', () => {
     for (const agent of SUPPORTED_AGENTS) {
       expect(DEFAULT_ICONS[agent]).toBeDefined();
-      expect(DEFAULT_ICONS[agent]).toContain('raw.githubusercontent.com');
+      expect(DEFAULT_ICONS[agent]).toContain('cdn.jsdelivr.net');
       expect(DEFAULT_ICONS[agent]).toContain(`${agent}.png`);
+    }
+  });
+
+  it('ensures local high-resolution PNG asset files exist for all supported agents', () => {
+    for (const agent of SUPPORTED_AGENTS) {
+      const assetPath = fileURLToPath(new URL(`../assets/icons/${agent}.png`, import.meta.url));
+      expect(existsSync(assetPath)).toBe(true);
+      const stat = statSync(assetPath);
+      expect(stat.size).toBeGreaterThan(1000);
     }
   });
 
@@ -95,5 +108,15 @@ describe('Domain Types and Constants', () => {
   it('defines keychain service and account constants', () => {
     expect(KEYCHAIN_SERVICE_NAME).toBe('com.takefive.cli');
     expect(KEYCHAIN_BARK_URL_ACCOUNT).toBe('bark_url');
+  });
+
+  it('defines supported config languages and type guard', () => {
+    expect(CONFIG_LANGUAGES).toEqual(['system', 'zh-CN', 'en']);
+    expect(isConfigLanguage('system')).toBe(true);
+    expect(isConfigLanguage('zh-CN')).toBe(true);
+    expect(isConfigLanguage('en')).toBe(true);
+    expect(isConfigLanguage('fr')).toBe(false);
+    expect(isConfigLanguage(123)).toBe(false);
+    expect(isConfigLanguage(null)).toBe(false);
   });
 });

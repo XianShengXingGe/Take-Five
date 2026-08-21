@@ -7,6 +7,7 @@ import { AntigravityAdapter } from './antigravity-adapter.js';
 
 export * from './base-adapter.js';
 export * from './backup-manager.js';
+export * from './hook-utils.js';
 export * from './claude-adapter.js';
 export * from './opencode-adapter.js';
 export * from './codex-adapter.js';

@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import type {
@@ -13,6 +14,7 @@ import {
   type UnifiedEventType,
 } from '../types/event.js';
 import { BaseAdapter } from './base-adapter.js';
+import { mergeHookCommand, stripHookCommand } from './hook-utils.js';
 
 export const CLAUDE_HOOK_COMMANDS = {
   task_completed: 'takefive notify --agent claude --event task_completed',
@@ -20,38 +22,6 @@ export const CLAUDE_HOOK_COMMANDS = {
   waiting_permission: 'takefive notify --agent claude --event waiting_permission',
   task_failed: 'takefive notify --agent claude --event task_failed',
 } as const;
-
-/**
- * Merges a Take Five hook command non-destructively with any pre-existing user command.
- */
-function mergeHookCommand(existing: unknown, takeFiveCmd: string): string {
-  if (typeof existing === 'string') {
-    const trimmed = existing.trim();
-    if (!trimmed) {
-      return takeFiveCmd;
-    }
-    if (trimmed.includes(takeFiveCmd)) {
-      return trimmed;
-    }
-    return `${trimmed} && ${takeFiveCmd}`;
-  }
-  return takeFiveCmd;
-}
-
-/**
- * Surgically removes Take Five hook command from a chained command string.
- */
-function stripHookCommand(current: unknown, marker = 'takefive notify'): string | undefined {
-  if (typeof current !== 'string') {
-    return undefined;
-  }
-  const parts = current
-    .split('&&')
-    .map((p) => p.trim())
-    .filter((p) => p.length > 0 && !p.includes(marker));
-
-  return parts.length > 0 ? parts.join(' && ') : undefined;
-}
 
 /**
  * Adapter for Anthropic Claude Code CLI integration.
@@ -76,14 +46,22 @@ export class ClaudeAdapter extends BaseAdapter {
   }
 
   /**
-   * Resolves the full path to Claude Code's config.json.
+   * Resolves the full path to Claude Code's config.json or settings.json.
    */
   getConfigPath(env?: Record<string, string | undefined>): string {
     const resolved = this.resolveEnv(env);
     if (resolved.CLAUDE_CONFIG_PATH && resolved.CLAUDE_CONFIG_PATH.trim().length > 0) {
       return resolved.CLAUDE_CONFIG_PATH.trim();
     }
-    return join(this.getClaudeDir(env), 'config.json');
+    const claudeDir = this.getClaudeDir(env);
+    const settingsPath = join(claudeDir, 'settings.json');
+    const configPath = join(claudeDir, 'config.json');
+
+    if (existsSync(settingsPath) && !existsSync(configPath)) {
+      return settingsPath;
+    }
+
+    return configPath;
   }
 
   /**

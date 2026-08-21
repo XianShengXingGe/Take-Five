@@ -6,6 +6,7 @@ import type { ConfigManager } from '../../core/config-manager.js';
 import type { CredentialStore } from '../../types/credential.js';
 import type { TakeFiveConfig } from '../../types/config.js';
 import { SUPPORTED_AGENTS, UNIFIED_EVENT_TYPES, type SupportedAgent } from '../../types/event.js';
+import { detectLanguage, getLocaleStrings } from '../../i18n/index.js';
 
 export interface StatusCommandDependencies {
   configManager: ConfigManager;
@@ -95,10 +96,13 @@ export function registerStatusCommand(
   program: Command,
   deps: StatusCommandDependencies,
 ): void {
+  const lang = detectLanguage(undefined, deps.env);
+  const dict = getLocaleStrings(lang);
+
   program
     .command('status')
-    .description('Display Bark connectivity, agent hook statuses, and notification rules')
-    .option('--json', 'Output system status in JSON format')
+    .description(dict.cli.commands.status)
+    .option('--json', dict.cli.options.json)
     .action(async (options: { json?: boolean }) => {
       const report = await gatherStatusReport(deps);
 
@@ -107,53 +111,57 @@ export function registerStatusCommand(
         return;
       }
 
-      console.log(pc.bold(pc.cyan('\n  Take Five (片刻) · System Status\n')));
+      const lang = detectLanguage(report.config.language, deps.env);
+      const dict = getLocaleStrings(lang);
+      const s = dict.cli.status;
+
+      console.log(pc.bold(pc.cyan(`\n  ${s.title}\n`)));
 
       // Section 1: Bark Push Service
-      console.log(pc.bold('📱 Bark Push Service'));
+      console.log(pc.bold(s.barkTitle));
       if (report.bark.configured) {
-        console.log(`  Status:   ${pc.green('✔ Configured')}`);
+        console.log(`  ${s.configured.slice(0, 1) === '✔' ? 'Status:  ' : '状态:    '} ${pc.green(s.configured)}`);
         console.log(`  Endpoint: ${pc.dim(maskBarkUrl(report.bark.endpoint))}`);
       } else {
-        console.log(`  Status:   ${pc.red('✖ Not configured')}`);
-        console.log(`  Hint:     Run ${pc.cyan('takefive install')} to set up credentials.`);
+        console.log(`  ${s.notConfigured.slice(0, 1) === '✖' ? 'Status:  ' : '状态:    '} ${pc.red(s.notConfigured)}`);
+        console.log(`  Hint:     ${s.notConfiguredHint}`);
       }
       console.log('');
 
       // Section 2: Coding Agent Integrations
-      console.log(pc.bold('🤖 Coding Agent Integrations'));
+      console.log(pc.bold(s.agentsTitle));
       for (const agentId of SUPPORTED_AGENTS) {
         const agentStatus = report.agents[agentId];
         if (!agentStatus) continue;
 
         const isEnabled = report.config.enabledAgents[agentId] ?? true;
         const statusBadge = agentStatus.installed
-          ? pc.green('✔ Active')
+          ? pc.green(s.active)
           : agentStatus.detected
-            ? pc.yellow('⚠ Detected (Hooks Missing)')
-            : pc.dim('○ Not Detected');
+            ? pc.yellow(s.detectedHooksMissing)
+            : pc.dim(s.notDetected);
 
-        const enabledBadge = isEnabled ? pc.green('enabled') : pc.dim('disabled');
+        const enabledBadge = isEnabled ? pc.green(s.enabled) : pc.dim(s.disabled);
+        const displayName = dict.agents[agentId] || agentStatus.displayName;
 
-        console.log(`  • ${pc.bold(agentStatus.displayName)} (${agentId}) [${enabledBadge}]`);
-        console.log(`    Status:     ${statusBadge}`);
-        console.log(`    Config:     ${pc.dim(agentStatus.configPath)}`);
+        console.log(`  • ${pc.bold(displayName)} (${agentId}) [${enabledBadge}]`);
+        console.log(`    ${s.configPath}:     ${pc.dim(agentStatus.configPath)}`);
         console.log(
-          `    Backup:     ${agentStatus.backupExists ? pc.green('Present (.takefive.bak)') : pc.dim('None')}`,
+          `    Backup:     ${agentStatus.backupExists ? pc.green(s.backupPresent) : pc.dim(s.backupNone)}`,
         );
 
         const hookKeys = Object.keys(agentStatus.hooks || {});
         if (hookKeys.length > 0) {
-          console.log(`    Hooks:      ${pc.dim(`${hookKeys.length}/${UNIFIED_EVENT_TYPES.length} events registered`)}`);
+          console.log(`    Hooks:      ${pc.dim(`${hookKeys.length}/${UNIFIED_EVENT_TYPES.length} ${s.hooksRegistered}`)}`);
         }
         console.log('');
       }
 
       // Section 3: Notification Rules & Configuration
-      console.log(pc.bold('⚙ Configuration & Notification Rules'));
-      console.log(`  Language:        ${pc.cyan(report.config.language)}`);
-      console.log(`  Debounce Window: ${pc.cyan(`${report.config.debounceSeconds}s`)}`);
-      console.log('  Event Rules:');
+      console.log(pc.bold(s.configTitle));
+      console.log(`  ${s.language}:        ${pc.cyan(report.config.language)}`);
+      console.log(`  ${s.debounceWindow}: ${pc.cyan(`${report.config.debounceSeconds}s`)}`);
+      console.log(`  ${s.eventRules}:`);
 
       for (const eventType of UNIFIED_EVENT_TYPES) {
         const rule = report.config.events[eventType];

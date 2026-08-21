@@ -70,11 +70,17 @@ describe('CLI takefive status', () => {
     expect(parsed.agents.antigravity).toBeDefined();
   });
 
-  it('outputs human-readable formatted status text', async () => {
+  it('outputs human-readable formatted status text in English when configured', async () => {
     const configManager = new ConfigManager({ configPath });
+    await configManager.saveConfig(
+      createMockConfig({
+        language: 'en',
+      }),
+    );
     const cli = createCli({
       configManager,
       credentialStore: mockCreds,
+      env: { LANG: 'en_US.UTF-8' },
     });
 
     let output = '';
@@ -89,10 +95,43 @@ describe('CLI takefive status', () => {
       console.log = originalLog;
     }
 
-    expect(output).toContain('Take Five');
+    expect(output).toContain('Take Five (片刻) · System Status');
     expect(output).toContain('Bark Push Service');
     expect(output).toContain('Coding Agent Integrations');
     expect(output).toContain('Claude Code');
     expect(output).toContain('Configuration & Notification Rules');
+  });
+
+  it('outputs human-readable formatted status text in Simplified Chinese when configured', async () => {
+    const configManager = new ConfigManager({ configPath });
+    await configManager.saveConfig(
+      createMockConfig({
+        language: 'zh-CN',
+      }),
+    );
+    const cli = createCli({
+      configManager,
+      credentialStore: mockCreds,
+      env: { LANG: 'zh_CN.UTF-8' },
+    });
+
+    let output = '';
+    const originalLog = console.log;
+    console.log = (msg: unknown) => {
+      output += String(msg) + '\n';
+    };
+
+    try {
+      await cli.parseAsync(['node', 'takefive', 'status']);
+    } finally {
+      console.log = originalLog;
+    }
+
+    expect(output).toContain('Take Five (片刻) · 系统状态');
+    expect(output).toContain('Bark 推送服务');
+    expect(output).toContain('编码智能体集成');
+    expect(output).toContain('Claude Code');
+    expect(output).toContain('配置与通知规则');
+    expect(output).toContain('未配置');
   });
 });

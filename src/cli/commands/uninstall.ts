@@ -7,6 +7,7 @@ import type { CredentialStore } from '../../types/credential.js';
 import type { PromptDriver } from '../prompt-driver.js';
 import { defaultPromptDriver } from '../prompt-driver.js';
 import { getTakeFiveHome } from '../../core/paths.js';
+import { detectLanguage, getLocaleStrings } from '../../i18n/index.js';
 
 export interface UninstallCommandDependencies {
   credentialStore: CredentialStore;
@@ -69,64 +70,69 @@ export function registerUninstallCommand(
   program: Command,
   deps: UninstallCommandDependencies,
 ): void {
+  const lang = detectLanguage(undefined, deps.env);
+  const dict = getLocaleStrings(lang);
+
   program
     .command('uninstall')
-    .description('Completely revert agent hooks, delete ~/.takefive/, and purge stored credentials')
-    .option('-y, --yes', 'Skip confirmation prompt and proceed with total purge')
-    .option('-f, --force', 'Alias for --yes')
-    .option('-q, --quiet', 'Suppress non-error output')
+    .description(dict.cli.commands.uninstall)
+    .option('-y, --yes', dict.cli.options.yes)
+    .option('-f, --force', dict.cli.options.yes)
+    .option('-q, --quiet', dict.cli.options.quiet)
     .action(async (options: UninstallOptions) => {
       const prompt = deps.promptDriver ?? defaultPromptDriver;
       const skipPrompt = Boolean(options.yes || options.force);
+      const lang = detectLanguage(undefined, deps.env);
+      const dict = getLocaleStrings(lang);
+      const u = dict.cli.uninstall;
 
       if (!skipPrompt) {
-        prompt.intro(pc.bgRed(pc.white(' Take Five (片刻) · Uninstallation ')));
+        prompt.intro(pc.bgRed(pc.white(` ${u.intro} `)));
 
         const proceed = await prompt.confirm({
-          message:
-            'Are you sure you want to completely uninstall Take Five?\n' +
-            'This will revert all agent configuration hooks, delete ~/.takefive/, and purge credentials from OS Keychain.',
+          message: u.confirmMessage,
           initialValue: false,
         });
 
         if (prompt.isCancel(proceed) || proceed !== true) {
-          prompt.outro(pc.dim('Uninstallation cancelled. No changes were made.'));
+          prompt.outro(pc.dim(u.cancelledOutro));
           return;
         }
       }
 
       const spinner = prompt.spinner();
       if (!options.quiet) {
-        spinner.start('Purging Take Five configuration, agent hooks, and credentials...');
+        spinner.start(u.purging);
       }
 
       const report = await runUninstall(deps);
 
       if (!options.quiet) {
-        spinner.stop('Purge completed.');
+        spinner.stop(u.purgeDone);
 
-        console.log(pc.bold(pc.cyan('\n  Uninstallation Summary:\n')));
+        console.log(pc.bold(pc.cyan(`\n  ${u.summaryTitle}\n`)));
 
         for (const result of report.agentResults) {
+          const displayName = dict.agents[result.agent] || result.agent;
           if (result.success) {
             const detail = result.restoredFromBackup
-              ? 'restored from .takefive.bak'
-              : `${result.hooksRemoved.length} hooks removed`;
-            console.log(`  ${pc.green('✔')} Agent "${result.agent}": ${pc.dim(detail)} (${result.configPath})`);
+              ? u.restoredFromBak
+              : `${result.hooksRemoved.length} ${u.hooksRemoved}`;
+            console.log(`  ${pc.green('✔')} Agent "${displayName}": ${pc.dim(detail)} (${result.configPath})`);
           } else {
-            console.error(`  ${pc.red('✖')} Agent "${result.agent}": failed to remove hooks (${result.error})`);
+            console.error(`  ${pc.red('✖')} Agent "${displayName}": failed to remove hooks (${result.error})`);
           }
         }
 
         console.log(
-          `  ${report.configPurged ? pc.green('✔') : pc.red('✖')} Configuration: ~/.takefive/ directory deleted`,
+          `  ${report.configPurged ? pc.green('✔') : pc.red('✖')} ${u.configPurged}`,
         );
         console.log(
-          `  ${report.credentialsPurged ? pc.green('✔') : pc.red('✖')} Credentials: com.takefive.cli secret purged from OS store`,
+          `  ${report.credentialsPurged ? pc.green('✔') : pc.red('✖')} ${u.credsPurged}`,
         );
 
         console.log('');
-        prompt.outro(pc.bold(pc.green('✨ Take Five has been completely uninstalled. Zero residue remains.')));
+        prompt.outro(pc.bold(pc.green(u.outroSuccess)));
       }
     });
 }

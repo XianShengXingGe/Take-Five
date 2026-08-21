@@ -41,6 +41,9 @@ describe('i18n localization', () => {
       expect(strings.agents.codex).toBe('Codex');
       expect(strings.agents.opencode).toBe('OpenCode');
       expect(strings.agents.antigravity).toBe('Antigravity');
+      expect(strings.cli.status.title).toContain('系统状态');
+      expect(strings.cli.commands.notify).toBeDefined();
+      expect(strings.cli.install.intro).toContain('安装向导');
     });
 
     it('returns English strings for en', () => {
@@ -51,6 +54,9 @@ describe('i18n localization', () => {
       expect(strings.events.waiting_permission.title).toBe('🔐 Awaiting Approval');
       expect(strings.events.task_failed.title).toBe('❌ Task Failed');
       expect(strings.agents.claude).toBe('Claude Code');
+      expect(strings.cli.status.title).toContain('System Status');
+      expect(strings.cli.commands.notify).toBeDefined();
+      expect(strings.cli.install.intro).toContain('Setup Wizard');
     });
   });
 

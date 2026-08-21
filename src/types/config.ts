@@ -5,6 +5,13 @@ export type ConfigLanguage = 'system' | 'zh-CN' | 'en';
 export const CONFIG_LANGUAGES = ['system', 'zh-CN', 'en'] as const;
 
 /**
+ * Type guard for ConfigLanguage.
+ */
+export function isConfigLanguage(value: unknown): value is ConfigLanguage {
+  return typeof value === 'string' && (CONFIG_LANGUAGES as readonly string[]).includes(value);
+}
+
+/**
  * Per-event notification rule.
  */
 export interface EventRule {
@@ -41,13 +48,13 @@ export interface TakeFiveConfig {
  */
 export const DEFAULT_ICONS: Record<SupportedAgent, string> = {
   claude:
-    'https://raw.githubusercontent.com/XianShengXingGe/Take-Five/main/assets/icons/claude.png',
+    'https://cdn.jsdelivr.net/gh/XianShengXingGe/Take-Five@main/assets/icons/claude.png',
   codex:
-    'https://raw.githubusercontent.com/XianShengXingGe/Take-Five/main/assets/icons/codex.png',
+    'https://cdn.jsdelivr.net/gh/XianShengXingGe/Take-Five@main/assets/icons/codex.png',
   opencode:
-    'https://raw.githubusercontent.com/XianShengXingGe/Take-Five/main/assets/icons/opencode.png',
+    'https://cdn.jsdelivr.net/gh/XianShengXingGe/Take-Five@main/assets/icons/opencode.png',
   antigravity:
-    'https://raw.githubusercontent.com/XianShengXingGe/Take-Five/main/assets/icons/antigravity.png',
+    'https://cdn.jsdelivr.net/gh/XianShengXingGe/Take-Five@main/assets/icons/antigravity.png',
 };
 
 /**

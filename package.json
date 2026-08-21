@@ -20,11 +20,15 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "assets",
+    "skills",
+    "icon"
   ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
+    "package:dmg": "bash scripts/build-dmg.sh",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"

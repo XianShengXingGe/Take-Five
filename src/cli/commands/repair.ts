@@ -1,8 +1,10 @@
 import type { Command } from 'commander';
 import pc from 'picocolors';
 import { createAllAdapters, getAdapter } from '../../adapters/index.js';
+import { BackupManager } from '../../adapters/backup-manager.js';
 import type { AgentAdapter, AdapterInstallResult } from '../../types/adapter.js';
 import { isSupportedAgent, type SupportedAgent } from '../../types/event.js';
+import { detectLanguage, getLocaleStrings } from '../../i18n/index.js';
 
 export interface RepairCommandDependencies {
   adapters?: AgentAdapter[];
@@ -67,6 +69,8 @@ export async function runRepair(
       continue;
     }
 
+    const backupManager = new BackupManager();
+
     if (hookStatus.installed && !options.force) {
       results.push({
         agent: adapter.id,
@@ -74,7 +78,7 @@ export async function runRepair(
         detected: hookStatus.detected,
         status: 'healthy',
         configPath: hookStatus.configPath,
-        backupPath: hookStatus.backupExists ? `${hookStatus.configPath}.takefive.bak` : undefined,
+        backupPath: hookStatus.backupExists ? backupManager.getBackupPath(hookStatus.configPath) : undefined,
       });
       continue;
     }
@@ -124,26 +128,34 @@ export function registerRepairCommand(
   program: Command,
   deps: RepairCommandDependencies,
 ): void {
+  const lang = detectLanguage(undefined, deps.env);
+  const dict = getLocaleStrings(lang);
+
   program
     .command('repair')
-    .description('Scan and automatically repair broken or missing agent notification hooks')
-    .option('-a, --agent <name>', 'Specific agent to repair (claude, codex, opencode, antigravity)')
-    .option('-f, --force', 'Force re-injection for all agents regardless of current state')
-    .option('-q, --quiet', 'Suppress non-error output')
+    .description(dict.cli.commands.repair)
+    .option('-a, --agent <name>', dict.cli.options.agent)
+    .option('-f, --force', dict.cli.options.forceRepair)
+    .option('-q, --quiet', dict.cli.options.quiet)
     .action(async (options: RepairOptions) => {
+      const lang = detectLanguage(undefined, deps.env);
+      const dict = getLocaleStrings(lang);
+      const r = dict.cli.repair;
+
       try {
         if (!options.quiet) {
-          console.log(pc.bold(pc.cyan('\n  Take Five (片刻) · Hook Repair Scanner\n')));
+          console.log(pc.bold(pc.cyan(`\n  ${r.scannerTitle}\n`)));
         }
 
         const summary = await runRepair(deps, options);
 
         if (!options.quiet) {
           for (const item of summary.results) {
+            const displayName = dict.agents[item.agent] || item.displayName;
             switch (item.status) {
               case 'repaired':
                 console.log(
-                  `  ${pc.green('✔')} ${pc.bold(item.displayName)} (${item.agent}): ${pc.green('Hooks repaired and restored')}`,
+                  `  ${pc.green('✔')} ${pc.bold(displayName)} (${item.agent}): ${pc.green(r.repaired)}`,
                 );
                 console.log(`    Config: ${pc.dim(item.configPath)}`);
                 if (item.backupPath) {
@@ -153,20 +165,20 @@ export function registerRepairCommand(
 
               case 'healthy':
                 console.log(
-                  `  ${pc.cyan('ℹ')} ${pc.bold(item.displayName)} (${item.agent}): ${pc.cyan('Hooks already healthy (no drift detected)')}`,
+                  `  ${pc.cyan('ℹ')} ${pc.bold(displayName)} (${item.agent}): ${pc.cyan(r.healthy)}`,
                 );
                 console.log(`    Config: ${pc.dim(item.configPath)}`);
                 break;
 
               case 'skipped':
                 console.log(
-                  `  ${pc.dim('○')} ${pc.dim(item.displayName)} (${item.agent}): ${pc.dim('Environment not found, skipped')}`,
+                  `  ${pc.dim('○')} ${pc.dim(displayName)} (${item.agent}): ${pc.dim(r.skipped)}`,
                 );
                 break;
 
               case 'failed':
                 console.error(
-                  `  ${pc.red('✖')} ${pc.bold(item.displayName)} (${item.agent}): ${pc.red(`Repair failed - ${item.error}`)}`,
+                  `  ${pc.red('✖')} ${pc.bold(displayName)} (${item.agent}): ${pc.red(`${r.failed} - ${item.error}`)}`,
                 );
                 break;
             }
@@ -177,7 +189,7 @@ export function registerRepairCommand(
             console.error(
               pc.bold(
                 pc.red(
-                  `✖ Hook repair finished with ${summary.failedCount} error(s). (${summary.repairedCount} repaired, ${summary.healthyCount} healthy, ${summary.skippedCount} skipped)`,
+                  `${r.summaryFailed} (${summary.repairedCount} repaired, ${summary.healthyCount} healthy, ${summary.skippedCount} skipped, ${summary.failedCount} failed)`,
                 ),
               ),
             );
@@ -185,7 +197,7 @@ export function registerRepairCommand(
             console.log(
               pc.bold(
                 pc.green(
-                  `✔ Hook repair completed. (${summary.repairedCount} repaired, ${summary.healthyCount} healthy, ${summary.skippedCount} skipped)`,
+                  `${r.summarySuccess} (${summary.repairedCount} repaired, ${summary.healthyCount} healthy, ${summary.skippedCount} skipped)`,
                 ),
               ),
             );

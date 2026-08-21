@@ -75,4 +75,32 @@ describe('Debouncer', () => {
 
     expect(result.debounced).toBe(false);
   });
+
+  it('prunes stale timestamps older than 24 hours when writing cache', async () => {
+    const dayMs = 24 * 60 * 60 * 1000;
+    const now = 100 * dayMs;
+
+    // Seed cache with a very old entry and a recent entry
+    writeFileSync(
+      cacheFilePath,
+      JSON.stringify({
+        version: '1.0.0',
+        timestamps: {
+          'claude:OldProject': now - (2 * dayMs), // 48h ago (stale)
+          'claude:RecentProject': now - (1 * 60 * 1000), // 1m ago (fresh)
+        },
+      }),
+      'utf-8',
+    );
+
+    const debouncer = new Debouncer({ cachePath: cacheFilePath, debounceSeconds: 2 });
+    await debouncer.checkAndRecord('opencode', 'NewProject', now);
+
+    const { readFileSync } = await import('node:fs');
+    const updated = JSON.parse(readFileSync(cacheFilePath, 'utf-8'));
+
+    expect(updated.timestamps['claude:OldProject']).toBeUndefined();
+    expect(updated.timestamps['claude:RecentProject']).toBe(now - (1 * 60 * 1000));
+    expect(updated.timestamps['opencode:NewProject']).toBe(now);
+  });
 });
