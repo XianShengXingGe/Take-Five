@@ -26,3 +26,12 @@ coverage/
 *.log
 .idea/
 .vscode/
+
+# Private / internal — not open-sourced
+# Product requirements, agent context, handoff notes, agent tooling
+AGENTS.md
+CONTEXT.md
+HANDOFF.md
+*_PRD.md
+docs/agents/
+skills/
