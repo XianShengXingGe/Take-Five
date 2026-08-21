@@ -5,7 +5,7 @@ import {
   createMockBarkPayload,
   createMockConfig,
   createMockUnifiedEvent,
-} from '../src/index.js';
+} from '../src/testing/index.js';
 
 describe('MockCredentialStore', () => {
   it('initializes with null or provided value', async () => {
@@ -63,7 +63,6 @@ describe('MockCredentialStore', () => {
 
     store.reset('https://api.day.app/fresh');
     expect(await store.getBarkUrl()).toBe('https://api.day.app/fresh');
-    // Calling getBarkUrl adds 1 call after reset
     expect(store.getCallCount()).toBe(1);
   });
 });
@@ -130,6 +129,23 @@ describe('MockBarkDispatcher', () => {
     const data = (await response.json()) as { code: number; message: string };
     expect(data.code).toBe(200);
     expect(dispatcher.getLastPayload()?.title).toBe('Fetch Test');
+  });
+
+  it('handles Request instances in mock fetch', async () => {
+    const dispatcher = new MockBarkDispatcher();
+    const mockFetch = dispatcher.createMockFetch();
+
+    const payload = createMockBarkPayload({ title: 'Request Object Test' });
+    const request = new Request('https://api.day.app/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Custom': '1' },
+      body: JSON.stringify(payload),
+    });
+
+    const response = await mockFetch(request);
+    expect(response.status).toBe(200);
+    expect(dispatcher.getLastPayload()?.title).toBe('Request Object Test');
+    expect(dispatcher.getLastRequest()?.headers?.['x-custom']).toBe('1');
   });
 
   it('resets dispatcher state', async () => {

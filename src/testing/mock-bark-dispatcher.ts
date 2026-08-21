@@ -12,6 +12,17 @@ export type SimulatedResponseHandler = (
   payload: BarkPushPayload,
 ) => Promise<BarkPushResponse> | BarkPushResponse;
 
+function createEmptyPayload(body = ''): BarkPushPayload {
+  return {
+    title: '',
+    subtitle: '',
+    body,
+    group: '',
+    level: 'active',
+    icon: '',
+  };
+}
+
 /**
  * In-memory MockBarkDispatcher for hermetic testing of Bark push notifications.
  */
@@ -61,46 +72,51 @@ export class MockBarkDispatcher {
       input: string | URL | Request,
       init?: RequestInit,
     ): Promise<Response> => {
-      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
-      const body = init?.body;
-      let payload: BarkPushPayload;
+      let url: string;
+      let rawBody: string | undefined;
 
-      if (typeof body === 'string') {
+      if (typeof input === 'string') {
+        url = input;
+      } else if (input instanceof URL) {
+        url = input.toString();
+      } else {
+        url = input.url;
         try {
-          payload = JSON.parse(body) as BarkPushPayload;
+          rawBody = await input.clone().text();
         } catch {
-          payload = {
-            title: '',
-            subtitle: '',
-            body: body,
-            group: '',
-            level: 'active',
-            icon: '',
-          };
+          rawBody = undefined;
+        }
+      }
+
+      if (typeof init?.body === 'string') {
+        rawBody = init.body;
+      }
+
+      let payload: BarkPushPayload;
+      if (typeof rawBody === 'string' && rawBody.length > 0) {
+        try {
+          payload = JSON.parse(rawBody) as BarkPushPayload;
+        } catch {
+          payload = createEmptyPayload(rawBody);
         }
       } else {
-        payload = {
-          title: '',
-          subtitle: '',
-          body: '',
-          group: '',
-          level: 'active',
-          icon: '',
-        };
+        payload = createEmptyPayload();
       }
 
       const headers: Record<string, string> = {};
-      if (init?.headers) {
-        if (init.headers instanceof Headers) {
-          init.headers.forEach((value, key) => {
+      const sourceHeaders = init?.headers ?? (input instanceof Request ? input.headers : undefined);
+
+      if (sourceHeaders) {
+        if (sourceHeaders instanceof Headers) {
+          sourceHeaders.forEach((value, key) => {
             headers[key] = value;
           });
-        } else if (Array.isArray(init.headers)) {
-          init.headers.forEach(([k, v]) => {
+        } else if (Array.isArray(sourceHeaders)) {
+          sourceHeaders.forEach(([k, v]) => {
             headers[k] = v;
           });
         } else {
-          Object.assign(headers, init.headers);
+          Object.assign(headers, sourceHeaders);
         }
       }
 

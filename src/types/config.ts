@@ -29,7 +29,7 @@ export interface TakeFiveConfig {
   /** Cooldown window in seconds per agent/project to prevent duplicate pushes */
   debounceSeconds: number;
   /** Mapping of agent identifier to CDN icon URL */
-  icons: Record<string, string>;
+  icons: Record<SupportedAgent, string>;
   /** Notification rules per unified event type */
   events: Record<UnifiedEventType, EventRule>;
   /** Enabled status per supported agent */
