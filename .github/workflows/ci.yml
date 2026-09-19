@@ -30,9 +30,9 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
-      - run: pnpm test
-      - run: pnpm typecheck
       - run: pnpm build
+      - run: pnpm typecheck
+      - run: pnpm test
 
       - name: Build macOS DMG
         if: runner.os == 'macOS'
