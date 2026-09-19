@@ -9,13 +9,17 @@ export function getTakeFiveHome(env: Record<string, string | undefined> = proces
   if (env.TAKEFIVE_HOME && env.TAKEFIVE_HOME.trim().length > 0) {
     return env.TAKEFIVE_HOME.trim();
   }
-  return join(homedir(), '.takefive');
+  const home = env.HOME || env.USERPROFILE || homedir();
+  return join(home, '.takefive');
 }
 
 /**
  * Returns the path to the Take Five config file (~/.takefive/config.json).
  */
 export function getConfigPath(env: Record<string, string | undefined> = process.env): string {
+  if (env.TAKEFIVE_CONFIG_PATH && env.TAKEFIVE_CONFIG_PATH.trim().length > 0) {
+    return env.TAKEFIVE_CONFIG_PATH.trim();
+  }
   return join(getTakeFiveHome(env), 'config.json');
 }
 

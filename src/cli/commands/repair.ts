@@ -53,62 +53,60 @@ export async function runRepair(
     targetAdapters = deps.adapters ?? createAllAdapters();
   }
 
-  const results: SingleRepairResult[] = [];
+  const backupManager = new BackupManager();
 
-  for (const adapter of targetAdapters) {
-    const hookStatus = await adapter.getHookStatus(deps.env);
+  const results: SingleRepairResult[] = await Promise.all(
+    targetAdapters.map(async (adapter): Promise<SingleRepairResult> => {
+      const hookStatus = await adapter.getHookStatus(deps.env);
 
-    if (!hookStatus.detected && !hookStatus.installed && !hookStatus.backupExists) {
-      results.push({
-        agent: adapter.id,
-        displayName: adapter.displayName,
-        detected: false,
-        status: 'skipped',
-        configPath: hookStatus.configPath,
+      if (!hookStatus.detected && !hookStatus.installed && !hookStatus.backupExists) {
+        return {
+          agent: adapter.id,
+          displayName: adapter.displayName,
+          detected: false,
+          status: 'skipped',
+          configPath: hookStatus.configPath,
+        };
+      }
+
+      if (hookStatus.installed && !options.force) {
+        return {
+          agent: adapter.id,
+          displayName: adapter.displayName,
+          detected: hookStatus.detected,
+          status: 'healthy',
+          configPath: hookStatus.configPath,
+          backupPath: hookStatus.backupExists ? backupManager.getBackupPath(hookStatus.configPath) : undefined,
+        };
+      }
+
+      // Re-inject hooks
+      const installResult: AdapterInstallResult = await adapter.install({
+        env: deps.env,
+        force: true,
       });
-      continue;
-    }
 
-    const backupManager = new BackupManager();
-
-    if (hookStatus.installed && !options.force) {
-      results.push({
-        agent: adapter.id,
-        displayName: adapter.displayName,
-        detected: hookStatus.detected,
-        status: 'healthy',
-        configPath: hookStatus.configPath,
-        backupPath: hookStatus.backupExists ? backupManager.getBackupPath(hookStatus.configPath) : undefined,
-      });
-      continue;
-    }
-
-    // Re-inject hooks
-    const installResult: AdapterInstallResult = await adapter.install({
-      env: deps.env,
-      force: true,
-    });
-
-    if (installResult.success) {
-      results.push({
-        agent: adapter.id,
-        displayName: adapter.displayName,
-        detected: hookStatus.detected,
-        status: 'repaired',
-        configPath: installResult.configPath,
-        backupPath: installResult.backupPath,
-      });
-    } else {
-      results.push({
-        agent: adapter.id,
-        displayName: adapter.displayName,
-        detected: hookStatus.detected,
-        status: 'failed',
-        configPath: installResult.configPath,
-        error: installResult.error,
-      });
-    }
-  }
+      if (installResult.success) {
+        return {
+          agent: adapter.id,
+          displayName: adapter.displayName,
+          detected: hookStatus.detected,
+          status: 'repaired',
+          configPath: installResult.configPath,
+          backupPath: installResult.backupPath,
+        };
+      } else {
+        return {
+          agent: adapter.id,
+          displayName: adapter.displayName,
+          detected: hookStatus.detected,
+          status: 'failed',
+          configPath: installResult.configPath,
+          error: installResult.error,
+        };
+      }
+    }),
+  );
 
   const repairedCount = results.filter((r) => r.status === 'repaired').length;
   const healthyCount = results.filter((r) => r.status === 'healthy').length;
@@ -122,6 +120,89 @@ export async function runRepair(
     skippedCount,
     failedCount,
   };
+}
+
+export async function runRepairAction(
+  options: RepairOptions,
+  deps: RepairCommandDependencies,
+): Promise<void> {
+  const lang = detectLanguage(undefined, deps.env);
+  const dict = getLocaleStrings(lang);
+  const r = dict.cli.repair;
+
+  try {
+    if (!options.quiet) {
+      console.log(pc.bold(pc.cyan(`\n  ${r.scannerTitle}\n`)));
+    }
+
+    const summary = await runRepair(deps, options);
+
+    if (!options.quiet) {
+      for (const item of summary.results) {
+        const displayName = dict.agents[item.agent] || item.displayName;
+        switch (item.status) {
+          case 'repaired':
+            console.log(
+              `  ${pc.green('✔')} ${pc.bold(displayName)} (${item.agent}): ${pc.green(r.repaired)}`,
+            );
+            console.log(`    Config: ${pc.dim(item.configPath)}`);
+            if (item.backupPath) {
+              console.log(`    Backup: ${pc.dim(item.backupPath)}`);
+            }
+            break;
+
+          case 'healthy':
+            console.log(
+              `  ${pc.cyan('ℹ')} ${pc.bold(displayName)} (${item.agent}): ${pc.cyan(r.healthy)}`,
+            );
+            console.log(`    Config: ${pc.dim(item.configPath)}`);
+            break;
+
+          case 'skipped':
+            console.log(
+              `  ${pc.dim('○')} ${pc.dim(displayName)} (${item.agent}): ${pc.dim(r.skipped)}`,
+            );
+            break;
+
+          case 'failed':
+            console.error(
+              `  ${pc.red('✖')} ${pc.bold(displayName)} (${item.agent}): ${pc.red(`${r.failed} - ${item.error}`)}`,
+            );
+            break;
+        }
+      }
+
+      console.log('');
+      if (summary.failedCount > 0) {
+        console.error(
+          pc.bold(
+            pc.red(
+              `${r.summaryFailed} (${summary.repairedCount} repaired, ${summary.healthyCount} healthy, ${summary.skippedCount} skipped, ${summary.failedCount} failed)`,
+            ),
+          ),
+        );
+      } else {
+        console.log(
+          pc.bold(
+            pc.green(
+              `${r.summarySuccess} (${summary.repairedCount} repaired, ${summary.healthyCount} healthy, ${summary.skippedCount} skipped)`,
+            ),
+          ),
+        );
+      }
+      console.log('');
+    }
+
+    if (summary.failedCount > 0) {
+      process.exitCode = 1;
+    }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!options.quiet) {
+      console.error(pc.red(`Error: ${msg}`));
+    }
+    process.exitCode = 1;
+  }
 }
 
 export function registerRepairCommand(
@@ -138,82 +219,6 @@ export function registerRepairCommand(
     .option('-f, --force', dict.cli.options.forceRepair)
     .option('-q, --quiet', dict.cli.options.quiet)
     .action(async (options: RepairOptions) => {
-      const lang = detectLanguage(undefined, deps.env);
-      const dict = getLocaleStrings(lang);
-      const r = dict.cli.repair;
-
-      try {
-        if (!options.quiet) {
-          console.log(pc.bold(pc.cyan(`\n  ${r.scannerTitle}\n`)));
-        }
-
-        const summary = await runRepair(deps, options);
-
-        if (!options.quiet) {
-          for (const item of summary.results) {
-            const displayName = dict.agents[item.agent] || item.displayName;
-            switch (item.status) {
-              case 'repaired':
-                console.log(
-                  `  ${pc.green('✔')} ${pc.bold(displayName)} (${item.agent}): ${pc.green(r.repaired)}`,
-                );
-                console.log(`    Config: ${pc.dim(item.configPath)}`);
-                if (item.backupPath) {
-                  console.log(`    Backup: ${pc.dim(item.backupPath)}`);
-                }
-                break;
-
-              case 'healthy':
-                console.log(
-                  `  ${pc.cyan('ℹ')} ${pc.bold(displayName)} (${item.agent}): ${pc.cyan(r.healthy)}`,
-                );
-                console.log(`    Config: ${pc.dim(item.configPath)}`);
-                break;
-
-              case 'skipped':
-                console.log(
-                  `  ${pc.dim('○')} ${pc.dim(displayName)} (${item.agent}): ${pc.dim(r.skipped)}`,
-                );
-                break;
-
-              case 'failed':
-                console.error(
-                  `  ${pc.red('✖')} ${pc.bold(displayName)} (${item.agent}): ${pc.red(`${r.failed} - ${item.error}`)}`,
-                );
-                break;
-            }
-          }
-
-          console.log('');
-          if (summary.failedCount > 0) {
-            console.error(
-              pc.bold(
-                pc.red(
-                  `${r.summaryFailed} (${summary.repairedCount} repaired, ${summary.healthyCount} healthy, ${summary.skippedCount} skipped, ${summary.failedCount} failed)`,
-                ),
-              ),
-            );
-          } else {
-            console.log(
-              pc.bold(
-                pc.green(
-                  `${r.summarySuccess} (${summary.repairedCount} repaired, ${summary.healthyCount} healthy, ${summary.skippedCount} skipped)`,
-                ),
-              ),
-            );
-          }
-          console.log('');
-        }
-
-        if (summary.failedCount > 0) {
-          process.exitCode = 1;
-        }
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (!options.quiet) {
-          console.error(pc.red(`Error: ${msg}`));
-        }
-        process.exitCode = 1;
-      }
+      await runRepairAction(options, deps);
     });
 }

@@ -14,8 +14,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/XianShengXingGe/Take-Five/releases/latest"><img src="https://img.shields.io/badge/Download-v0.1-007AFF.svg" alt="Download Latest Release"></a>
+  <a href="https://github.com/XianShengXingGe/Take-Five/releases/tag/v0.6.0"><img src="https://img.shields.io/badge/Download-v0.6.0-007AFF.svg" alt="Download Latest Release"></a>
   <img src="https://img.shields.io/badge/macOS-12%2B-000000.svg" alt="macOS 12+">
+  <img src="https://img.shields.io/badge/Windows-10%2F11-0078D4.svg" alt="Windows 10/11">
   <img src="https://img.shields.io/badge/Requires-Node.js%20v18%2B-339933.svg" alt="Node.js v18+">
   <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT">
 </p>
@@ -24,6 +25,29 @@
 
 <a id="-english"></a>
 ## 🌟 English
+
+### 🚀 What's New in v0.6.0
+
+- **🎨 Platform Native Design & Adaptive Light/Dark Themes**:
+  - **macOS**: Fully rewritten in SwiftUI adhering strictly to Apple Human Interface Guidelines (HIG). Seamlessly adapts between Light and Dark mode with native system materials, rounded cards, and SF Pro typography.
+  - **Windows**: Modern Windows 11 Fluent 2 design language with dynamic registry-based light/dark theme detection, layered acrylic elevation, and clean Segoe UI Variable typography.
+- **💻 Dual Windows Architectures & Lean Apple Silicon macOS**:
+  - **Windows ARM64**: Native `TakeFive-v0.6.0-win-arm64.zip` for Snapdragon X Elite, Surface Pro, and Copilot+ PCs, eliminating emulation battery drain and lag.
+  - **Windows x64**: `TakeFive-v0.6.0-win-x64.zip` built with .NET 8 single-file compression and dead-code trimming, slashing package size from >160MB to ~90MB.
+  - **macOS Apple Silicon**: `TakeFive-v0.6.0-macOS.dmg` targets pure `arm64`, with embedded Node.js debugging symbols stripped (saving >23MB) and packaged with UDZO zlib-9 compression (~47MB).
+- **🔔 Standardized Menu Bar & System Tray UX**:
+  - **macOS**: Menu bar accessory uses an 18x18 monochrome vector Template icon (`isTemplate = true`) that dynamically adapts to light and dark menu bars, featuring a mute slash indicator and unconfigured status dot.
+  - **Windows**: Colorful, crisp official bell icon (`app.ico`) in the taskbar notification area, eliminating GDI handle leaks via `DestroyIcon`.
+  - **Minimal 3-Item Context Menu**: Quick access simplified to "Open Dashboard", "Global Notifications (Click to Mute / Enable)", and "Quit Take Five".
+- **📝 Spacious Bark Input & Seamless Clipboard Support**:
+  - Full-width Bark endpoint input field with instant "Paste from Clipboard", "Clear", and "Test Push" buttons.
+  - Full keyboard shortcuts (`Cmd+V`, `Cmd+C`, `Cmd+A` on macOS; `Ctrl+V`, `Ctrl+C` on Windows) and right-click context menu even in macOS accessory mode without a standard app menu bar.
+  - Instant auto-save on Enter and blur (clicking outside) with real-time "Saved" status badge.
+- **🗂️ Unified Settings & Zero-Friction Cold Start**:
+  - Dashboard restructured into 4 intuitive cards: `🤖 Agent Platform`, `🔔 Notification Rules`, `⚙️ General Settings` (Bark endpoint, launch at startup, language toggle), and `❤️ Support & Sponsor`.
+  - Zero-friction cold start: launches directly into the dashboard with the Bark input highlighted, retiring the cumbersome 4-step wizard.
+
+---
 
 ### Why Take Five?
 
@@ -70,20 +94,21 @@ https://api.day.app/YOUR_KEY/
 
 Copy it. You'll need it in Step 3.
 
-**Step 2 — Install Take Five on your Mac**
+**Step 2 — Install Take Five on macOS or Windows**
 
-1. Download `TakeFive-0.1-macOS.dmg` from the [Releases](https://github.com/XianShengXingGe/Take-Five/releases) page.
-2. Open the DMG and double-click **一键安装 Take Five**.
+- **macOS (Apple Silicon)**: download `TakeFive-v0.6.0-macOS.dmg`, drag **Take Five.app** to your **Applications** folder (or double-click **一键安装 Take Five**).
+- **Windows (x64)**: download `TakeFive-v0.6.0-win-x64.zip`, extract it, and double-click **TakeFive\TakeFive.exe** (or run **Install Take Five.cmd**).
+- **Windows (ARM64 / Copilot+ PC)**: download `TakeFive-v0.6.0-win-arm64.zip`, extract it, and double-click **TakeFive\TakeFive.exe**.
 
-> ⚠️ Requires [Node.js](https://nodejs.org) (v18 or later). If you don't have it, download the LTS version from nodejs.org first.
+> 💡 Built-in standalone runtime: no Node.js installation required. Double-click and enjoy!
 
-**Step 3 — Run the setup wizard**
+**Step 3 — Configure Bark in seconds**
 
-The installer walks you through two things:
-1. Paste your Bark URL — Take Five will send a test notification to confirm your phone is connected.
-2. Choose your notification language — English or Chinese.
+Open Take Five from your menu bar or system tray:
+1. Paste your Bark URL or device Key directly into the wide Bark input box under **General Settings** (or click the **Paste** button).
+2. Take Five auto-saves on Enter or blur, confirms with a "Saved" badge, and sends an instant test push to your phone.
 
-That's it. Take Five wires itself into your coding agent automatically.
+That's it. Take Five automatically discovers and wires itself into your coding agents.
 
 ---
 
@@ -96,26 +121,56 @@ Once installed, open any terminal:
 | `takefive status` | Check connection status and which agents are active |
 | `takefive test` | Send a test notification to your phone |
 | `takefive config` | Change language, notification rules, and more |
+| `takefive enable codex` / `takefive on codex` | Turn notifications on for one agent |
+| `takefive disable codex` / `takefive off codex` | Turn notifications off for one agent |
+| `takefive enable --all` / `takefive disable --all` | Turn all four agents on or off |
 | `takefive repair` | Fix hooks if an agent update broke them |
 | `takefive uninstall` | Remove everything cleanly |
+
+The enable/disable commands are instant central soft switches: they update only
+Take Five's own configuration and leave the agents' hook files untouched. This
+makes repeated switching fast and avoids unnecessary third-party config writes.
 
 ---
 
 ### 🤝 Supported Agents
 
-| Agent | Status |
-|---|---|
-| [Antigravity](https://antigravity.dev) | ✅ Fully tested |
-| Claude Code | ⚠️ Integrated, not fully tested |
-| Codex | ⚠️ Integrated, not fully tested |
-| OpenCode | ⚠️ Integrated, not fully tested |
+| Agent | Official integration | Event coverage |
+|---|---|---|
+| [Claude Code](https://code.claude.com/docs/en/hooks) | Shared `~/.claude/settings.json` hooks | Complete, except waiting-input is native for background agents only |
+| [Codex](https://developers.openai.com/codex/hooks) | User-level `~/.codex/hooks.json` | Task completed + waiting permission; review/trust once in `/hooks` |
+| [OpenCode](https://opencode.ai/docs/plugins/) | Global local plugin | Task completed + waiting permission + task failed |
+| [Antigravity](https://antigravity.google/docs/hooks/) | Named global hook | All four events |
 
-> **v0.1 note:** Only Antigravity has been fully tested in this release. Other agents are integrated but may have rough edges. Please open an [issue](https://github.com/XianShengXingGe/Take-Five/issues) if you run into problems.
+Take Five reports only lifecycle events exposed by each agent's official extension API. It does not infer a failure or question from model text, avoiding false alerts.
 
 ---
 
 <a id="-简体中文"></a>
 ## 🇨🇳 简体中文
+
+### 🚀 v0.6.0 版本更新内容
+
+- **🎨 平台原生设计与动态深浅色自适应（macOS HIG 与 Windows Fluent 2）**：
+  - **macOS**：完全基于 SwiftUI 原生控件重构，深度契合 Apple 人机交互指南（HIG），界面跟随系统在浅色与深色主题间无缝自适应，彻底告别原先固定深色玻璃黑框；
+  - **Windows**：深度遵循 Windows 11 Fluent 2 设计语言，实时感知系统深浅色注册表配置，采用现代分层微光卡片与 Segoe UI 字体阶梯。
+- **💻 Windows 双架构原生支持与安装包极致瘦身**：
+  - **Windows ARM64 原生支持**：提供专为骁龙 X Elite、Surface Pro 及 Copilot+ PC 编译的 `TakeFive-v0.6.0-win-arm64.zip`，告别 x64 模拟运行开销与耗电；
+  - **Windows x64 极致精简**：针对 64 位 Intel/AMD 平台提供 `TakeFive-v0.6.0-win-x64.zip`，启用 .NET 8 单文件深度压缩与修剪，包体积从 >160MB 缩减至约 90MB；
+  - **macOS Apple Silicon 纯 arm64**：提供 `TakeFive-v0.6.0-macOS.dmg`，内置 Node.js 剥离调试符号（缩减 >23MB），配合 UDZO 极高压缩率，最终镜像体积收敛至 47MB。
+- **🔔 托盘与菜单栏体验升级**：
+  - **macOS**：采用 18x18 官方单色矢量模板图标（Template Icon），自适应浅色与深色菜单栏；静音状态呈现对角斜杠，未配置时显示贴心圆点；
+  - **Windows**：托盘采用色彩鲜艳的高清官方图标（`app.ico`），引入 `DestroyIcon` 杜绝 GDI 句柄泄漏与模糊残留；
+  - **极简三段式托盘菜单**：精简为“打开面板”、“全局通知（点击静音/启用）”与“退出片刻”，拒绝冗杂选项。
+- **📝 全新宽幅 Bark 输入框与原生全快捷键/右键剪贴板**：
+  - 常驻全宽输入框，配备一键“粘贴 / 清空 / 测试推送”直观按钮；
+  - 彻底打通 macOS Accessory 无顶层菜单栏模式下的系统剪贴板链路，完整支持 `Cmd+V` / `Cmd+C` / `Cmd+A` 快捷键与右键上下文菜单；
+  - 支持回车即时保存与点击外部失焦自动保存，附带即时“已保存”状态反馈。
+- **🗂️ 模块架构梳理与零阻碍即刻冷启动**：
+  - 面板重构为四大清晰核心卡片：`🤖 Agent 平台`、`🔔 通知规则`、`⚙️ 通用设置`（统一收纳 Bark 推送、开机自启与语言切换）、`❤️ 支持与赞赏`；
+  - 首次运行不再弹窗阻断式的四步向导，直接进入主界面并自动聚焦 Bark 输入框，开箱即用。
+
+---
 
 ### 为什么需要「片刻」？
 
@@ -162,20 +217,21 @@ https://api.day.app/YOUR_KEY/
 
 复制好，第三步要用。
 
-**第二步 — 在 Mac 上安装片刻**
+**第二步 — 在 macOS 或 Windows 上安装片刻**
 
-1. 从 [Releases 页面](https://github.com/XianShengXingGe/Take-Five/releases) 下载 `TakeFive-0.1-macOS.dmg`。
-2. 打开 DMG，双击**一键安装 Take Five**。
+- **macOS (Apple Silicon)**：下载 `TakeFive-v0.6.0-macOS.dmg`，将 **Take Five.app** 拖入 **Applications (应用程序)** 目录（或双击**一键安装 Take Five**）。
+- **Windows (x64)**：下载 `TakeFive-v0.6.0-win-x64.zip`，解压后双击 **TakeFive\TakeFive.exe**（或双击 **Install Take Five.cmd**）。
+- **Windows (ARM64 / Copilot+ PC)**：下载 `TakeFive-v0.6.0-win-arm64.zip`，解压后双击 **TakeFive\TakeFive.exe**。
 
-> ⚠️ 需要提前安装 [Node.js](https://nodejs.org)（v18 及以上）。如果没有，先去 nodejs.org 下载 LTS 版本。
+> 💡 内置独立执行环境，用户电脑无需预先安装 Node.js 或 npm，双击即可直接使用！
 
-**第三步 — 运行配置向导**
+**第三步 — 极速配置 Bark**
 
-安装程序会引导你完成两件事：
-1. 粘贴你的 Bark 地址——片刻会发一条测试推送，确认手机连通正常。
-2. 选择通知语言——支持中文和英文。
+从菜单栏或托盘图标打开片刻面板：
+1. 直接在**通用设置**卡片中的宽幅输入框中粘贴你的 Bark 推送地址或设备 Key（也可点击**粘贴**按钮）。
+2. 输入后回车或点击窗口空白处即可自动保存，面板会提示“已保存”并立即向你的手机发送一条测试推送验证连通。
 
-完成后，片刻自动接入你的 AI 助手，不需要任何额外操作。
+完成后，片刻自动接入你电脑上的所有 AI 助手，无需额外配置。
 
 ---
 
@@ -188,21 +244,27 @@ https://api.day.app/YOUR_KEY/
 | `takefive status` | 查看连接状态和各助手的钩子是否正常 |
 | `takefive test` | 向手机发送一条测试推送 |
 | `takefive config` | 修改语言、通知规则等配置 |
+| `takefive enable codex` / `takefive on codex` | 启用单个工具通知 |
+| `takefive disable codex` / `takefive off codex` | 禁用单个工具通知 |
+| `takefive enable --all` / `takefive disable --all` | 一次启用或禁用全部四个工具 |
 | `takefive repair` | 修复因助手更新导致的钩子失效 |
 | `takefive uninstall` | 完整卸载，清除所有配置和钩子 |
+
+启用/禁用命令采用中央软开关：只修改片刻自己的配置，不反复改写各工具的
+Hook 文件，因此切换即时生效、可快速恢复，也降低了第三方配置冲突风险。
 
 ---
 
 ### 🤝 支持的 AI 助手
 
-| 助手 | 状态 |
-|---|---|
-| [Antigravity](https://antigravity.dev) | ✅ 已完整测试 |
-| Claude Code | ⚠️ 已接入，未完整测试 |
-| Codex | ⚠️ 已接入，未完整测试 |
-| OpenCode | ⚠️ 已接入，未完整测试 |
+| 助手 | 官方接入方式 | 事件覆盖 |
+|---|---|---|
+| [Claude Code](https://code.claude.com/docs/en/hooks) | 共用 `~/.claude/settings.json` Hooks | 基本完整；等待输入事件仅后台 Agent 原生提供 |
+| [Codex](https://developers.openai.com/codex/hooks) | 用户级 `~/.codex/hooks.json` | 任务完成、等待授权；首次需在 `/hooks` 中审核并信任 |
+| [OpenCode](https://opencode.ai/docs/plugins/) | 全局本地 Plugin | 任务完成、等待授权、任务失败 |
+| [Antigravity](https://antigravity.google/docs/hooks/) | 全局命名 Hook | 四类事件完整覆盖 |
 
-> **v0.1 说明：** 目前只有 Antigravity 经过完整测试。其他助手已接入但可能有问题，欢迎提 [issue](https://github.com/XianShengXingGe/Take-Five/issues) 反馈。
+片刻只上报各工具官方扩展接口能够确定的生命周期事件，不根据模型文本猜测“失败”或“提问”，避免误提醒。
 
 ---
 

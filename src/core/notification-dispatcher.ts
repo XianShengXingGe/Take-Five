@@ -1,10 +1,13 @@
 import type { BarkPushPayload, BarkPushResponse } from '../types/bark.js';
 import type { CredentialStore } from '../types/credential.js';
-import type { UnifiedEvent } from '../types/event.js';
+import type { SupportedAgent, UnifiedEvent, UnifiedEventType } from '../types/event.js';
+import type { ParsedHookPayload } from '../types/adapter.js';
+import { getAdapter } from '../adapters/index.js';
 import { BarkClient } from './bark-client.js';
 import { ConfigManager } from './config-manager.js';
 import { OsCredentialStore } from './credential-store.js';
 import { Debouncer } from './debouncer.js';
+import { detectProjectName } from './project-detector.js';
 import { TemplateEngine } from './template-engine.js';
 
 export type DispatchStatus =
@@ -13,6 +16,7 @@ export type DispatchStatus =
   | 'agent_disabled'
   | 'event_disabled'
   | 'missing_credential'
+  | 'skipped'
   | 'failed';
 
 export interface DispatchResult {
@@ -20,6 +24,22 @@ export interface DispatchResult {
   payload?: BarkPushPayload;
   response?: BarkPushResponse;
   error?: string;
+  isPreToolUse?: boolean;
+  decision?: 'ask' | 'stop';
+}
+
+export interface DispatchInput {
+  agent: SupportedAgent;
+  type: UnifiedEventType;
+  action?: string;
+  project?: string;
+  cwd?: string;
+  reason?: string;
+  timestamp?: number;
+  threadId?: string;
+  turnId?: string;
+  fingerprint?: string;
+  env?: Record<string, string | undefined>;
 }
 
 export interface DispatchOptions {
@@ -36,8 +56,9 @@ export interface NotificationDispatcherOptions {
 }
 
 /**
- * Orchestrator that coordinates config validation, debounce checks, credential lookup,
- * template rendering, and Bark HTTP dispatching.
+ * Deep orchestrator module that coordinates workspace detection, config rules,
+ * agent enablement checks, debounce suppression, credential lookup, template rendering,
+ * and Bark HTTP dispatching.
  */
 export class NotificationDispatcher {
   private configManager: ConfigManager;
@@ -55,9 +76,33 @@ export class NotificationDispatcher {
   }
 
   /**
-   * Executes the full notification dispatch pipeline for a unified lifecycle event.
+   * Executes the full notification dispatch pipeline for a unified lifecycle event or input.
    */
-  async dispatch(event: UnifiedEvent, options: DispatchOptions = {}): Promise<DispatchResult> {
+  async dispatch(input: UnifiedEvent | DispatchInput, options: DispatchOptions = {}): Promise<DispatchResult> {
+    const projectName =
+      input.project && input.project.trim().length > 0
+        ? input.project.trim()
+        : detectProjectName({
+            explicitProject: input.project,
+            cwd: (input as DispatchInput).cwd,
+            env: (input as DispatchInput).env,
+          });
+
+    const fallbackFingerprint =
+      'threadId' in input && input.threadId && input.turnId
+        ? `${input.agent}:${input.threadId}:${input.turnId}`
+        : undefined;
+    const fingerprint = input.fingerprint || fallbackFingerprint;
+
+    const event: UnifiedEvent = {
+      agent: input.agent,
+      type: input.type,
+      project: projectName,
+      reason: input.reason,
+      timestamp: input.timestamp ?? Date.now(),
+      fingerprint,
+    };
+
     const config = await this.configManager.loadConfig();
 
     // 1. Check if agent is enabled
@@ -77,6 +122,7 @@ export class NotificationDispatcher {
         event.agent,
         event.project,
         event.timestamp,
+        event.fingerprint,
       );
       if (debounceCheck.debounced) {
         return { status: 'debounced' };
@@ -111,5 +157,78 @@ export class NotificationDispatcher {
         error: errorMsg,
       };
     }
+  }
+
+  /**
+   * Parses stdin hook payloads from Coding Agents, applies adapter payload mapping,
+   * handles skip checks, and executes end-to-end dispatch.
+   */
+  async dispatchFromHook(
+    rawStdin: string,
+    fallback: DispatchInput,
+    options: DispatchOptions = {},
+  ): Promise<DispatchResult> {
+    let eventType: UnifiedEventType = fallback.type;
+    let reason: string | undefined = fallback.reason;
+    let projectCwd: string | undefined = fallback.cwd;
+    let payloadObj: Record<string, unknown> = {
+      event: fallback.action,
+      type: fallback.action,
+      action: fallback.action,
+      cwd: fallback.cwd,
+      threadId: fallback.threadId,
+      turnId: fallback.turnId,
+      env: fallback.env,
+    };
+    let isPreToolUse = false;
+
+    if (rawStdin && rawStdin.trim().length > 0) {
+      try {
+        const parsedStdin = JSON.parse(rawStdin.trim()) as Record<string, unknown>;
+        payloadObj = { ...payloadObj, ...parsedStdin };
+      } catch {
+        // Fallback to default input on malformed JSON
+      }
+    }
+
+    let parsed: ParsedHookPayload | undefined;
+    const adapter = getAdapter(fallback.agent);
+    if (adapter?.parseHookPayload) {
+      parsed = await adapter.parseHookPayload(payloadObj, fallback.type, fallback.reason);
+      isPreToolUse = parsed.isPreToolUse;
+      if (parsed.shouldSkip) {
+        return {
+          status: 'skipped',
+          isPreToolUse,
+          decision: isPreToolUse ? 'ask' : 'stop',
+        };
+      }
+      eventType = parsed.eventType;
+      if (parsed.reason) {
+        reason = parsed.reason;
+      }
+      if (parsed.projectCwd) {
+        projectCwd = parsed.projectCwd;
+      }
+    }
+
+    const result = await this.dispatch(
+      {
+        ...fallback,
+        type: eventType,
+        reason,
+        cwd: projectCwd,
+        threadId: parsed?.threadId || fallback.threadId,
+        turnId: parsed?.turnId || fallback.turnId,
+        fingerprint: parsed?.fingerprint || fallback.fingerprint,
+      },
+      options,
+    );
+
+    return {
+      ...result,
+      isPreToolUse,
+      decision: isPreToolUse ? 'ask' : 'stop',
+    };
   }
 }

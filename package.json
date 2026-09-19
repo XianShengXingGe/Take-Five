@@ -1,6 +1,6 @@
 {
   "name": "takefive",
-  "version": "0.1.0",
+  "version": "0.6.0",
   "description": "Smart notification tool for Coding Agents (Codex, Claude Code, OpenCode, Antigravity)",
   "type": "module",
   "bin": {
@@ -26,9 +26,10 @@
     "icon"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && (command -v swiftc >/dev/null 2>&1 && swiftc -O -target arm64-apple-macos12.0 src/desktop/macos/*.swift -o dist/TakeFive && cp -f dist/TakeFive dist/TakeFiveMenuBar || true)",
     "dev": "tsup --watch",
     "package:dmg": "bash scripts/build-dmg.sh",
+    "package:windows": "(command -v powershell >/dev/null 2>&1 && powershell -ExecutionPolicy Bypass -File scripts/build-windows.ps1) || bash scripts/build-windows.sh",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"

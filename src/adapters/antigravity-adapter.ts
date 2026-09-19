@@ -6,6 +6,7 @@ import type {
   AdapterUninstallOptions,
   AdapterUninstallResult,
   HookStatus,
+  ParsedHookPayload,
 } from '../types/adapter.js';
 import {
   UNIFIED_EVENT_TYPES,
@@ -42,27 +43,6 @@ export interface AntigravityHookResponse {
   permissionOverrides?: string[];
   overwrite?: Record<string, unknown>;
 }
-
-export const ANTIGRAVITY_HOOK_SPEC = {
-  enabled: true,
-  Stop: [
-    {
-      type: 'command',
-      command: 'takefive notify --agent antigravity --event task_completed',
-    },
-  ],
-  PreToolUse: [
-    {
-      matcher: 'ask_question',
-      hooks: [
-        {
-          type: 'command',
-          command: 'takefive notify --agent antigravity --event waiting_input',
-        },
-      ],
-    },
-  ],
-};
 
 export class AntigravityAdapter extends BaseAdapter {
   readonly id: SupportedAgent = 'antigravity';
@@ -140,14 +120,22 @@ export class AntigravityAdapter extends BaseAdapter {
     }
 
     const takefive = config.takefive as Record<string, unknown> | undefined;
-    const isConfigured = Boolean(takefive && typeof takefive === 'object' && takefive.enabled !== false);
+    const serialized = takefive ? JSON.stringify(takefive) : '';
+    const isConfigured = Boolean(
+      takefive &&
+      typeof takefive === 'object' &&
+      takefive.enabled !== false &&
+      serialized.includes('--event task_completed') &&
+      serialized.includes('--event waiting_input') &&
+      serialized.includes('--event waiting_permission'),
+    );
 
     const hooks: Partial<Record<UnifiedEventType, string>> = {};
     if (isConfigured) {
-      hooks.task_completed = 'takefive notify --agent antigravity --event task_completed';
-      hooks.waiting_input = 'takefive notify --agent antigravity --event waiting_input';
-      hooks.waiting_permission = 'takefive notify --agent antigravity --event waiting_permission';
-      hooks.task_failed = 'takefive notify --agent antigravity --event task_failed';
+      hooks.task_completed = 'Stop (maps error termination to task_failed)';
+      hooks.waiting_input = 'PreToolUse: ask_question';
+      hooks.waiting_permission = 'PreToolUse: ask_permission';
+      hooks.task_failed = 'Stop: terminationReason=error';
     }
 
     return {
@@ -160,99 +148,34 @@ export class AntigravityAdapter extends BaseAdapter {
   }
 
   async install(options: AdapterInstallOptions = {}): Promise<AdapterInstallResult> {
-    const configPath = options.configPath ?? this.getConfigPath(options.env);
-
-    try {
-      const existingConfig = (await this.backupManager.readJson<Record<string, unknown>>(
-        configPath,
-      )) ?? {};
-
-      const existingTakeFive = existingConfig.takefive as Record<string, unknown> | undefined;
-      if (existingTakeFive?.enabled === true && !options.force) {
-        return {
-          agent: this.id,
-          success: true,
-          configPath,
-          backupPath: this.backupManager.getBackupPath(configPath),
-          hooksInjected: [...UNIFIED_EVENT_TYPES],
-          alreadyInstalled: true,
-        };
-      }
-
-      const backupPath = (await this.backupManager.createBackup(configPath)) ?? undefined;
-
-      const updatedConfig = {
+    return this.applyJsonPatchInstall(
+      (existingConfig) => {
+        const existingTakeFive = existingConfig.takefive as Record<string, unknown> | undefined;
+        const currentSource = existingTakeFive ? JSON.stringify(existingTakeFive) : '';
+        return Boolean(
+          existingTakeFive?.enabled === true &&
+            currentSource.includes('--event task_completed') &&
+            currentSource.includes('--event waiting_input') &&
+            currentSource.includes('--event waiting_permission'),
+        );
+      },
+      (existingConfig) => ({
         ...existingConfig,
-        takefive: { ...ANTIGRAVITY_HOOK_SPEC },
-      };
-
-      await this.backupManager.atomicWriteJson(configPath, updatedConfig);
-
-      return {
-        agent: this.id,
-        success: true,
-        configPath,
-        backupPath,
-        hooksInjected: [...UNIFIED_EVENT_TYPES],
-        alreadyInstalled: false,
-      };
-    } catch (err: unknown) {
-      return {
-        agent: this.id,
-        success: false,
-        configPath,
-        hooksInjected: [],
-        error: err instanceof Error ? err.message : String(err),
-      };
-    }
+        takefive: this.buildHookSpec(options.env),
+      }),
+      [...UNIFIED_EVENT_TYPES],
+      options,
+    );
   }
 
   async uninstall(options: AdapterUninstallOptions = {}): Promise<AdapterUninstallResult> {
-    const configPath = options.configPath ?? this.getConfigPath(options.env);
-
-    try {
-      const restored = await this.backupManager.restoreBackup(configPath);
-      if (restored) {
-        return {
-          agent: this.id,
-          success: true,
-          configPath,
-          restoredFromBackup: true,
-          hooksRemoved: [...UNIFIED_EVENT_TYPES],
-        };
-      }
-
-      const config = await this.backupManager.readJson<Record<string, unknown>>(configPath);
-      if (!config) {
-        return {
-          agent: this.id,
-          success: true,
-          configPath,
-          restoredFromBackup: false,
-          hooksRemoved: [],
-        };
-      }
-
-      delete config.takefive;
-      await this.backupManager.atomicWriteJson(configPath, config);
-
-      return {
-        agent: this.id,
-        success: true,
-        configPath,
-        restoredFromBackup: false,
-        hooksRemoved: [...UNIFIED_EVENT_TYPES],
-      };
-    } catch (err: unknown) {
-      return {
-        agent: this.id,
-        success: false,
-        configPath,
-        restoredFromBackup: false,
-        hooksRemoved: [],
-        error: err instanceof Error ? err.message : String(err),
-      };
-    }
+    return this.applyJsonPatchUninstall(
+      (config) => {
+        delete config.takefive;
+      },
+      [...UNIFIED_EVENT_TYPES],
+      options,
+    );
   }
 
   mapLifecycleEvent(rawEvent: string): UnifiedEventType | null {
@@ -268,6 +191,8 @@ export class AntigravityAdapter extends BaseAdapter {
         return 'task_completed';
 
       case 'ask_question':
+      case 'request_user_input':
+      case 'requestuserinput':
       case 'waiting_input':
       case 'prompt':
       case 'user_input':
@@ -290,6 +215,90 @@ export class AntigravityAdapter extends BaseAdapter {
         return null;
     }
   }
+
+  override parseHookPayload(
+    payload: Record<string, unknown>,
+    fallbackEvent: UnifiedEventType,
+    fallbackReason?: string,
+  ): ParsedHookPayload {
+    const isPreToolUse = Boolean(payload.toolCall && typeof payload.toolCall === 'object');
+    let shouldSkip = false;
+    let eventType: UnifiedEventType = fallbackEvent;
+    let reason: string | undefined = fallbackReason;
+    let projectCwd: string | undefined = undefined;
+
+    if (fallbackEvent === 'task_completed' && payload.fullyIdle === false) {
+      shouldSkip = true;
+    }
+
+    const toolCall = payload.toolCall as { name?: string; args?: Record<string, unknown> } | undefined;
+    if (toolCall?.name === 'ask_question' || toolCall?.name === 'request_user_input') {
+      eventType = 'waiting_input';
+      const questions = toolCall.args?.questions as Array<{ question?: string } | string> | undefined;
+      const firstQ = questions?.[0];
+      const questionText =
+        (typeof firstQ === 'object' && firstQ !== null ? firstQ.question : typeof firstQ === 'string' ? firstQ : undefined) ||
+        (typeof toolCall.args?.question === 'string' ? toolCall.args.question : undefined) ||
+        (typeof toolCall.args?.prompt === 'string' ? toolCall.args.prompt : undefined) ||
+        (typeof toolCall.args?.message === 'string' ? toolCall.args.message : undefined);
+      if (questionText) {
+        reason = questionText;
+      }
+    } else if (
+      payload.terminationReason === 'error' ||
+      (typeof payload.error === 'string' && payload.error.trim().length > 0)
+    ) {
+      eventType = 'task_failed';
+      reason = (payload.error as string) || (payload.terminationReason as string);
+    } else if (payload.terminationReason === 'permission_request') {
+      eventType = 'waiting_permission';
+    }
+
+    if (
+      Array.isArray(payload.workspacePaths) &&
+      payload.workspacePaths.length > 0 &&
+      typeof payload.workspacePaths[0] === 'string'
+    ) {
+      projectCwd = payload.workspacePaths[0];
+    }
+
+    return { eventType, reason, projectCwd, shouldSkip, isPreToolUse };
+  }
+
+  private buildHookSpec(env?: Record<string, string | undefined>): Record<string, unknown> {
+    return {
+      enabled: true,
+      Stop: [
+        {
+          type: 'command',
+          command: this.generateNotifyCommand('task_completed', { env }),
+          timeout: 10,
+        },
+      ],
+      PreToolUse: [
+        {
+          matcher: 'ask_question',
+          hooks: [
+            {
+              type: 'command',
+              command: this.generateNotifyCommand('waiting_input', { env }),
+              timeout: 10,
+            },
+          ],
+        },
+        {
+          matcher: 'ask_permission',
+          hooks: [
+            {
+              type: 'command',
+              command: this.generateNotifyCommand('waiting_permission', { env }),
+              timeout: 10,
+            },
+          ],
+        },
+      ],
+    };
+  }
 }
 
 export function translateAntigravityEvent(payload: AntigravityHookPayload): UnifiedEvent {
@@ -302,11 +311,17 @@ export function translateAntigravityEvent(payload: AntigravityHookPayload): Unif
   if (hasError || isErrorTermination) {
     type = 'task_failed';
     reason = payload.error || payload.terminationReason;
-  } else if (payload.toolCall?.name === 'ask_question') {
+  } else if (payload.toolCall?.name === 'ask_question' || payload.toolCall?.name === 'request_user_input') {
     type = 'waiting_input';
-    const questions = payload.toolCall.args?.questions as Array<{ question?: string }> | undefined;
-    if (questions && questions.length > 0 && questions[0].question) {
-      reason = questions[0].question;
+    const questions = payload.toolCall.args?.questions as Array<{ question?: string } | string> | undefined;
+    const firstQ = questions?.[0];
+    const questionText =
+      (typeof firstQ === 'object' && firstQ !== null ? firstQ.question : typeof firstQ === 'string' ? firstQ : undefined) ||
+      (typeof payload.toolCall.args?.question === 'string' ? payload.toolCall.args.question : undefined) ||
+      (typeof payload.toolCall.args?.prompt === 'string' ? payload.toolCall.args.prompt : undefined) ||
+      (typeof payload.toolCall.args?.message === 'string' ? payload.toolCall.args.message : undefined);
+    if (questionText) {
+      reason = questionText;
     }
   } else if (
     payload.terminationReason === 'permission_request' ||
@@ -341,5 +356,5 @@ export async function handleAntigravityHookPayload(
 ): Promise<AntigravityHookResponse> {
   const event = translateAntigravityEvent(payload);
   await dispatcher.dispatch(event);
-  return {};
+  return { decision: 'stop' };
 }

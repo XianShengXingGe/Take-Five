@@ -13,12 +13,33 @@ export class MockCredentialStore implements CredentialStore {
   private url: string | null = null;
   private calls: CredentialStoreCall[] = [];
   private simulatedErrors: Partial<Record<CredentialStoreCall['method'], Error>> = {};
+  private supported: boolean = true;
+  private platform: NodeJS.Platform | string = 'darwin';
 
-  constructor(initialUrl: string | null = null) {
+  constructor(initialUrl: string | null = null, options?: { supported?: boolean; platform?: NodeJS.Platform | string }) {
     this.url = initialUrl;
+    if (options?.supported !== undefined) {
+      this.supported = options.supported;
+    }
+    if (options?.platform !== undefined) {
+      this.platform = options.platform;
+    }
   }
 
-  async getBarkUrl(): Promise<string | null> {
+  isSupported(): boolean {
+    return this.supported;
+  }
+
+  getPlatform(): NodeJS.Platform | string {
+    return this.platform;
+  }
+
+  setSupported(supported: boolean, platform: NodeJS.Platform | string = 'linux'): void {
+    this.supported = supported;
+    this.platform = platform;
+  }
+
+  async getBarkUrl(_env?: Record<string, string | undefined>): Promise<string | null> {
     this.recordCall('getBarkUrl');
     const error = this.simulatedErrors.getBarkUrl;
     if (error) {
@@ -27,7 +48,7 @@ export class MockCredentialStore implements CredentialStore {
     return this.url;
   }
 
-  async setBarkUrl(url: string): Promise<void> {
+  async setBarkUrl(url: string, _env?: Record<string, string | undefined>): Promise<void> {
     this.recordCall('setBarkUrl', url);
     const error = this.simulatedErrors.setBarkUrl;
     if (error) {
@@ -36,7 +57,7 @@ export class MockCredentialStore implements CredentialStore {
     this.url = url;
   }
 
-  async deleteBarkUrl(): Promise<void> {
+  async deleteBarkUrl(_env?: Record<string, string | undefined>): Promise<void> {
     this.recordCall('deleteBarkUrl');
     const error = this.simulatedErrors.deleteBarkUrl;
     if (error) {

@@ -35,6 +35,8 @@ export interface FormattedNotificationContent {
   body: string;
 }
 
+export const MAX_BODY_LENGTH = 1000;
+
 /**
  * Formats title, subtitle, and body according to language, agent, project, and custom rules.
  */
@@ -47,16 +49,20 @@ export function formatNotificationContent(
   const agentDisplayName = dict.agents[params.agent] ?? params.agent;
 
   const title = params.ruleTitle && params.ruleTitle.trim().length > 0
-    ? params.ruleTitle
+    ? params.ruleTitle.trim().slice(0, 12)
     : eventTemplate.title;
 
   const subtitle = `${agentDisplayName} · ${params.project}`;
 
-  const body = params.reason && params.reason.trim().length > 0
+  let body = params.reason && params.reason.trim().length > 0
     ? params.reason
     : params.ruleBody && params.ruleBody.trim().length > 0
-      ? params.ruleBody
+      ? params.ruleBody.trim().slice(0, 32)
       : eventTemplate.body;
+
+  if (body.length > MAX_BODY_LENGTH) {
+    body = `${body.slice(0, MAX_BODY_LENGTH - 3)}...`;
+  }
 
   return {
     title,

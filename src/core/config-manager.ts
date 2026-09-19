@@ -11,6 +11,7 @@ import { getConfigPath } from './paths.js';
 
 export interface ConfigManagerOptions {
   configPath?: string;
+  env?: Record<string, string | undefined>;
 }
 
 /**
@@ -20,7 +21,21 @@ export class ConfigManager {
   private configPath: string;
 
   constructor(options: ConfigManagerOptions = {}) {
-    this.configPath = options.configPath ?? getConfigPath();
+    this.configPath = options.configPath ?? getConfigPath(options.env);
+  }
+
+  /**
+   * Checks whether the config file exists on disk.
+   */
+  hasConfig(): boolean {
+    return existsSync(this.configPath);
+  }
+
+  /**
+   * Returns the path to the configuration file.
+   */
+  getConfigPath(): string {
+    return this.configPath;
   }
 
   /**
@@ -107,6 +122,7 @@ export class ConfigManager {
         ...defaults.enabledAgents,
         ...(raw.enabledAgents ?? {}),
       },
+      ...(raw.autostart !== undefined ? { autostart: raw.autostart } : {}),
     };
   }
 }

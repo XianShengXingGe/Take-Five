@@ -8,6 +8,7 @@ import type { PromptDriver } from '../prompt-driver.js';
 import { defaultPromptDriver } from '../prompt-driver.js';
 import { getTakeFiveHome } from '../../core/paths.js';
 import { detectLanguage, getLocaleStrings } from '../../i18n/index.js';
+import { cleanupUserLaunchers } from '../../core/launcher-cleanup.js';
 
 export interface UninstallCommandDependencies {
   credentialStore: CredentialStore;
@@ -26,6 +27,7 @@ export interface UninstallReport {
   agentResults: AdapterUninstallResult[];
   configPurged: boolean;
   credentialsPurged: boolean;
+  launchersPurged: boolean;
 }
 
 export async function runUninstall(
@@ -59,11 +61,84 @@ export async function runUninstall(
     credentialsPurged = false;
   }
 
+  // 4. Remove installer-created launchers and Windows user PATH entry.
+  let launchersPurged = false;
+  try {
+    await cleanupUserLaunchers(deps.env);
+    launchersPurged = true;
+  } catch {
+    launchersPurged = false;
+  }
+
   return {
     agentResults,
     configPurged,
     credentialsPurged,
+    launchersPurged,
   };
+}
+
+export async function runUninstallAction(
+  options: UninstallOptions,
+  deps: UninstallCommandDependencies,
+): Promise<void> {
+  const prompt = deps.promptDriver ?? defaultPromptDriver;
+  const skipPrompt = Boolean(options.yes || options.force);
+  const lang = detectLanguage(undefined, deps.env);
+  const dict = getLocaleStrings(lang);
+  const u = dict.cli.uninstall;
+
+  if (!skipPrompt) {
+    prompt.intro(pc.bgRed(pc.white(` ${u.intro} `)));
+
+    const proceed = await prompt.confirm({
+      message: u.confirmMessage,
+      initialValue: false,
+    });
+
+    if (prompt.isCancel(proceed) || proceed !== true) {
+      prompt.outro(pc.dim(u.cancelledOutro));
+      return;
+    }
+  }
+
+  const spinner = prompt.spinner();
+  if (!options.quiet) {
+    spinner.start(u.purging);
+  }
+
+  const report = await runUninstall(deps);
+
+  if (!options.quiet) {
+    spinner.stop(u.purgeDone);
+
+    console.log(pc.bold(pc.cyan(`\n  ${u.summaryTitle}\n`)));
+
+    for (const result of report.agentResults) {
+      const displayName = dict.agents[result.agent] || result.agent;
+      if (result.success) {
+        const detail = result.restoredFromBackup
+          ? u.restoredFromBak
+          : `${result.hooksRemoved.length} ${u.hooksRemoved}`;
+        console.log(`  ${pc.green('✔')} Agent "${displayName}": ${pc.dim(detail)} (${result.configPath})`);
+      } else {
+        console.error(`  ${pc.red('✖')} Agent "${displayName}": failed to remove hooks (${result.error})`);
+      }
+    }
+
+    console.log(
+      `  ${report.configPurged ? pc.green('✔') : pc.red('✖')} ${u.configPurged}`,
+    );
+    console.log(
+      `  ${report.credentialsPurged ? pc.green('✔') : pc.red('✖')} ${u.credsPurged}`,
+    );
+    console.log(
+      `  ${report.launchersPurged ? pc.green('✔') : pc.red('✖')} ${u.launchersPurged}`,
+    );
+
+    console.log('');
+    prompt.outro(pc.bold(pc.green(u.outroSuccess)));
+  }
 }
 
 export function registerUninstallCommand(
@@ -80,59 +155,6 @@ export function registerUninstallCommand(
     .option('-f, --force', dict.cli.options.yes)
     .option('-q, --quiet', dict.cli.options.quiet)
     .action(async (options: UninstallOptions) => {
-      const prompt = deps.promptDriver ?? defaultPromptDriver;
-      const skipPrompt = Boolean(options.yes || options.force);
-      const lang = detectLanguage(undefined, deps.env);
-      const dict = getLocaleStrings(lang);
-      const u = dict.cli.uninstall;
-
-      if (!skipPrompt) {
-        prompt.intro(pc.bgRed(pc.white(` ${u.intro} `)));
-
-        const proceed = await prompt.confirm({
-          message: u.confirmMessage,
-          initialValue: false,
-        });
-
-        if (prompt.isCancel(proceed) || proceed !== true) {
-          prompt.outro(pc.dim(u.cancelledOutro));
-          return;
-        }
-      }
-
-      const spinner = prompt.spinner();
-      if (!options.quiet) {
-        spinner.start(u.purging);
-      }
-
-      const report = await runUninstall(deps);
-
-      if (!options.quiet) {
-        spinner.stop(u.purgeDone);
-
-        console.log(pc.bold(pc.cyan(`\n  ${u.summaryTitle}\n`)));
-
-        for (const result of report.agentResults) {
-          const displayName = dict.agents[result.agent] || result.agent;
-          if (result.success) {
-            const detail = result.restoredFromBackup
-              ? u.restoredFromBak
-              : `${result.hooksRemoved.length} ${u.hooksRemoved}`;
-            console.log(`  ${pc.green('✔')} Agent "${displayName}": ${pc.dim(detail)} (${result.configPath})`);
-          } else {
-            console.error(`  ${pc.red('✖')} Agent "${displayName}": failed to remove hooks (${result.error})`);
-          }
-        }
-
-        console.log(
-          `  ${report.configPurged ? pc.green('✔') : pc.red('✖')} ${u.configPurged}`,
-        );
-        console.log(
-          `  ${report.credentialsPurged ? pc.green('✔') : pc.red('✖')} ${u.credsPurged}`,
-        );
-
-        console.log('');
-        prompt.outro(pc.bold(pc.green(u.outroSuccess)));
-      }
+      await runUninstallAction(options, deps);
     });
 }

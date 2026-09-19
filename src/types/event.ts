@@ -37,6 +37,8 @@ export interface UnifiedEvent {
   reason?: string;
   /** Millisecond timestamp when the event was emitted */
   timestamp: number;
+  /** Optional idempotency fingerprint for cross-channel deduplication (e.g. threadId:turnId) */
+  fingerprint?: string;
 }
 
 /**

@@ -77,6 +77,20 @@ export interface AdapterUninstallResult {
 }
 
 /**
+ * Parsed and normalized result from an agent hook stdin payload.
+ */
+export interface ParsedHookPayload {
+  eventType: UnifiedEventType;
+  reason?: string;
+  projectCwd?: string;
+  shouldSkip: boolean;
+  isPreToolUse: boolean;
+  threadId?: string;
+  turnId?: string;
+  fingerprint?: string;
+}
+
+/**
  * Contract for all Coding Agent integration adapters.
  */
 export interface AgentAdapter {
@@ -120,6 +134,15 @@ export interface AgentAdapter {
    */
   generateNotifyCommand(
     eventType: UnifiedEventType,
-    options?: { project?: string; reason?: string },
+    options?: { project?: string; reason?: string; env?: Record<string, string | undefined> },
   ): string;
+
+  /**
+   * Parses and normalizes incoming hook stdin payload JSON.
+   */
+  parseHookPayload?(
+    payload: Record<string, unknown>,
+    fallbackEvent: UnifiedEventType,
+    fallbackReason?: string,
+  ): ParsedHookPayload | Promise<ParsedHookPayload>;
 }

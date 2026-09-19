@@ -1,4 +1,27 @@
-import * as p from '@clack/prompts';
+import * as nodeModule from 'node:module';
+
+type ClackPrompts = typeof import('@clack/prompts');
+
+let _clack: ClackPrompts | null = null;
+
+export async function loadClack(): Promise<ClackPrompts> {
+  if (!_clack) {
+    _clack = await import('@clack/prompts');
+  }
+  return _clack;
+}
+
+export function getClackSync(): ClackPrompts {
+  if (!_clack) {
+    const req = typeof require === 'function' ? require : nodeModule.createRequire(import.meta.url);
+    _clack = req('@clack/prompts') as ClackPrompts;
+  }
+  return _clack;
+}
+
+export function isClackLoaded(): boolean {
+  return _clack !== null;
+}
 
 /**
  * Pluggable abstraction for interactive terminal prompts.
@@ -39,14 +62,35 @@ export interface PromptDriver {
 }
 
 export const defaultPromptDriver: PromptDriver = {
-  intro: p.intro,
-  outro: p.outro,
-  note: p.note,
-  cancel: p.cancel,
-  isCancel: p.isCancel,
-  password: p.password,
-  text: p.text as PromptDriver['text'],
-  select: p.select as PromptDriver['select'],
-  confirm: p.confirm,
-  spinner: p.spinner,
+  intro: (title) => getClackSync().intro(title),
+  outro: (message) => getClackSync().outro(message),
+  note: (message, title) => getClackSync().note(message, title),
+  cancel: (message) => getClackSync().cancel(message),
+  isCancel: (value) => {
+    if (_clack) return _clack.isCancel(value);
+    return getClackSync().isCancel(value);
+  },
+  password: async (opts) => {
+    const clack = await loadClack();
+    return clack.password(opts);
+  },
+  text: async (opts) => {
+    const clack = await loadClack();
+    return clack.text(opts as Parameters<ClackPrompts['text']>[0]) as Promise<string | symbol>;
+  },
+  select: async <T>(opts: {
+    message: string;
+    options: { value: T; label: string; hint?: string }[];
+    initialValue?: T;
+  }): Promise<T | symbol> => {
+    const clack = await loadClack();
+    return clack.select(opts as Parameters<ClackPrompts['select']>[0]) as Promise<T | symbol>;
+  },
+  confirm: async (opts) => {
+    const clack = await loadClack();
+    return clack.confirm(opts);
+  },
+  spinner: () => {
+    return getClackSync().spinner();
+  },
 };

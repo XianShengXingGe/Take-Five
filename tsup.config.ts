@@ -10,9 +10,11 @@ export default defineConfig([
     clean: true,
     sourcemap: true,
     target: 'node18',
+    platform: 'node',
     shims: true,
+    noExternal: ['@clack/prompts', 'commander', 'picocolors'],
     banner: {
-      js: '#!/usr/bin/env node',
+      js: '#!/usr/bin/env node\nimport { createRequire } from "node:module";\nconst require = createRequire(import.meta.url);',
     },
   },
   {

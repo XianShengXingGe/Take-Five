@@ -13,16 +13,26 @@ export interface CredentialStore {
    * Retrieves the stored Bark server push URL if present.
    * Returns null if no credential exists.
    */
-  getBarkUrl(): Promise<string | null>;
+  getBarkUrl(env?: Record<string, string | undefined>): Promise<string | null>;
 
   /**
    * Securely saves or updates the Bark server push URL.
    * @param url The full Bark push endpoint URL including device token
    */
-  setBarkUrl(url: string): Promise<void>;
+  setBarkUrl(url: string, env?: Record<string, string | undefined>): Promise<void>;
 
   /**
    * Deletes the Bark server push URL from secure storage.
    */
-  deleteBarkUrl(): Promise<void>;
+  deleteBarkUrl(env?: Record<string, string | undefined>): Promise<void>;
+
+  /**
+   * Checks whether the current operating system platform supports secure credential storage.
+   */
+  isSupported(): boolean;
+
+  /**
+   * Returns the underlying OS platform.
+   */
+  getPlatform(): NodeJS.Platform | string;
 }

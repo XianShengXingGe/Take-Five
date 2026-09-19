@@ -29,18 +29,57 @@ export function findGitRoot(startDir: string): string | null {
   return null;
 }
 
+function cleanProjectNameCandidate(candidate: string): string {
+  const trimmed = candidate.trim();
+  if (!trimmed) return '';
+
+  const isPath = trimmed.includes('/') || trimmed.includes('\\') || existsSync(trimmed);
+  if (!isPath) {
+    return trimmed;
+  }
+
+  try {
+    if (existsSync(trimmed)) {
+      const gitRoot = findGitRoot(trimmed);
+      if (gitRoot) {
+        const gitName = basename(gitRoot);
+        if (gitName && gitName !== '/' && gitName !== '\\') {
+          return gitName;
+        }
+      }
+      const dirName = basename(resolve(trimmed));
+      if (dirName && dirName !== '/' && dirName !== '\\') {
+        return dirName;
+      }
+    }
+  } catch {
+    // Fall through to string extraction
+  }
+
+  const cleaned = trimmed.replace(/[/\\]+$/, '');
+  const segments = cleaned.split(/[/\\]/);
+  const lastSegment = segments[segments.length - 1]?.trim();
+  if (lastSegment && lastSegment.length > 0 && lastSegment !== '/' && lastSegment !== '\\') {
+    return lastSegment;
+  }
+
+  return trimmed;
+}
+
 /**
  * Resolves the active project name from explicit option, TAKEFIVE_PROJECT env var,
  * Git root directory name, or current working directory name.
  */
 export function detectProjectName(options: ProjectDetectorOptions = {}): string {
   if (options.explicitProject && options.explicitProject.trim().length > 0) {
-    return options.explicitProject.trim();
+    const cleaned = cleanProjectNameCandidate(options.explicitProject);
+    if (cleaned.length > 0) return cleaned;
   }
 
   const env = options.env ?? process.env;
   if (env.TAKEFIVE_PROJECT && env.TAKEFIVE_PROJECT.trim().length > 0) {
-    return env.TAKEFIVE_PROJECT.trim();
+    const cleaned = cleanProjectNameCandidate(env.TAKEFIVE_PROJECT);
+    if (cleaned.length > 0) return cleaned;
   }
 
   const cwd = resolve(options.cwd ?? process.cwd());

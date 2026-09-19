@@ -15,6 +15,9 @@ export interface CliLocaleDictionary {
     config: string;
     repair: string;
     uninstall: string;
+    enable: string;
+    disable: string;
+    tray: string;
   };
   options: {
     agent: string;
@@ -30,6 +33,7 @@ export interface CliLocaleDictionary {
   };
   status: {
     title: string;
+    statusLabel: string;
     barkTitle: string;
     configured: string;
     notConfigured: string;
@@ -48,14 +52,23 @@ export interface CliLocaleDictionary {
     language: string;
     debounceWindow: string;
     eventRules: string;
+    unsupportedPlatformWarning: string;
   };
   install: {
     intro: string;
+    unsupportedPlatformWarning: string;
+    unsupportedPlatformTitle: string;
     scanning: string;
     scanned: string;
     detectedTitle: string;
     noAgentsDetected: string;
     noAgentsNoteTitle: string;
+    existingBarkPrompt: string;
+    reuseExistingOption: string;
+    inputNewOption: string;
+    autoReusingBarkNotice: string;
+    autoReusingConfigNotice: string;
+    preservedTitle: string;
     barkPrompt: string;
     barkEmptyError: string;
     cancelled: string;
@@ -88,15 +101,20 @@ export interface CliLocaleDictionary {
     cancelledOutro: string;
     saveSuccessOutro: string;
     currentBarkPrompt: string;
+    barkEmptyError: string;
     barkTesting: string;
+    barkTestSuccess: string;
     barkSuccessNote: string;
     barkFailConfirm: string;
     barkForceSaved: string;
     langPrompt: string;
     langUpdated: string;
     debouncePrompt: string;
+    debounceInvalid: string;
     debounceUpdated: string;
     toggleAgentsPrompt: string;
+    enableAllAgentsOption: string;
+    disableAllAgentsOption: string;
     toggleEventsPrompt: string;
     resetConfirm: string;
     resetDone: string;
@@ -105,6 +123,16 @@ export interface CliLocaleDictionary {
     editEventRuleLevel: string;
     editEventRuleTitle: string;
     editEventRuleBody: string;
+    selectUrgencyPrompt: string;
+    customTitlePrompt: string;
+    titleLengthError: string;
+    customBodyPrompt: string;
+    bodyLengthError: string;
+    noneDefaultTemplate: string;
+    noteSuccess: string;
+    noteSaved: string;
+    noteUpdated: string;
+    noteReset: string;
     backOption: string;
   };
   repair: {
@@ -127,6 +155,7 @@ export interface CliLocaleDictionary {
     hooksRemoved: string;
     configPurged: string;
     credsPurged: string;
+    launchersPurged: string;
     outroSuccess: string;
   };
   test: {
@@ -150,15 +179,162 @@ export interface CliLocaleDictionary {
     unsupportedAgent: string;
     unsupportedEvent: string;
   };
+  agentSwitch: {
+    enabled: string;
+    disabled: string;
+  };
+  tray: {
+    started: string;
+    alreadyRunning: string;
+    stopped: string;
+    notRunning: string;
+    running: string;
+    binaryNotFound: string;
+    startFailed: string;
+  };
+}
+
+export interface AppLocaleDictionary {
+  name: string;
+  tagline: string;
+}
+
+export interface HeaderLocaleDictionary {
+  visitGithub: string;
+}
+
+export interface BarkLocaleDictionary {
+  title: string;
+  statusConnected: string;
+  statusUnconfigured: string;
+  target: string;
+  sendTest: string;
+}
+
+export interface AgentsUiLocaleDictionary {
+  title: string;
+  detected: string;
+  undetected: string;
+  muteAll: string;
+  enableAll: string;
+}
+
+export interface RulesLocaleDictionary {
+  title: string;
+  description: string;
+  taskCompleted: string;
+  waitingPermission: string;
+  waitingInput: string;
+  taskFailed: string;
+  levelActive: string;
+  levelTimeSensitive: string;
+}
+
+export interface PreferencesLocaleDictionary {
+  title: string;
+  autostart: string;
+  language: string;
+  langSystem: string;
+  langZh: string;
+  langEn: string;
+  reOnboard: string;
+  openTerminal: string;
+  quit: string;
+}
+
+export interface SupportLocaleDictionary {
+  title: string;
+  devTitle: string;
+  devDesc: string;
+  donateButton: string;
+  channelXiaohongshu: string;
+  channelWeibo: string;
+  channelEmail: string;
+}
+
+export interface DonationLocaleDictionary {
+  modalTitle: string;
+  modalSubtitle: string;
+  alipay?: string;
+  wechat?: string;
+  footerNote?: string;
+  close?: string;
 }
 
 export interface LocaleDictionary {
+  app: AppLocaleDictionary;
+  header: HeaderLocaleDictionary;
+  bark: BarkLocaleDictionary;
+  agentsUI: AgentsUiLocaleDictionary;
+  rules: RulesLocaleDictionary;
+  preferences: PreferencesLocaleDictionary;
+  support: SupportLocaleDictionary;
+  donation: DonationLocaleDictionary;
   events: Record<UnifiedEventType, LocaleEventTemplate>;
   agents: Record<SupportedAgent, string>;
   cli: CliLocaleDictionary;
 }
 
 export const zhCN: LocaleDictionary = {
+  app: {
+    name: '片刻',
+    tagline: '让 AI 持续工作，为你赢得片刻从容',
+  },
+  header: {
+    visitGithub: '访问 GitHub 开源项目',
+  },
+  bark: {
+    title: 'Bark 推送服务',
+    statusConnected: '已连接',
+    statusUnconfigured: '未配置',
+    target: '目标终端',
+    sendTest: '发送测试',
+  },
+  agentsUI: {
+    title: '🤖 Agent 平台',
+    detected: '已检测',
+    undetected: '未检测',
+    muteAll: '一键全部静音',
+    enableAll: '一键全部开启',
+  },
+  rules: {
+    title: '🔔 通知规则',
+    description: '按需设置事件提醒级别，兼顾及时响应与沉浸专注',
+    taskCompleted: '任务完成',
+    waitingPermission: '等待授权',
+    waitingInput: '等待输入',
+    taskFailed: '任务失败',
+    levelActive: '普通',
+    levelTimeSensitive: '重要',
+  },
+  preferences: {
+    title: '⚙️ 通用设置',
+    autostart: '开机自动启动',
+    language: '界面语言',
+    langSystem: '跟随系统',
+    langZh: '简体中文 (片刻)',
+    langEn: 'English',
+    reOnboard: '重新运行配置向导',
+    openTerminal: '打开终端高级配置',
+    quit: '退出片刻',
+  },
+  support: {
+    title: '❤️ 支持与赞赏',
+    devTitle: '打赏开发者',
+    devDesc: '如果片刻为你节省了时间，欢迎请作者喝杯咖啡',
+    donateButton: '赞赏支持',
+    channelXiaohongshu: '小红书',
+    channelWeibo: '微博',
+    channelEmail: '合作邮箱',
+  },
+  donation: {
+    modalTitle: '赞赏支持开发者',
+    modalSubtitle: '每一份支持都将用于片刻的多 Agent 适配与功能迭代',
+    alipay: '支付宝',
+    wechat: '微信支付',
+    footerNote: '扫码即刻赞赏，感谢每一份温暖与信任',
+    close: '关闭',
+  },
   events: {
     task_completed: {
       title: '✅ 任务完成',
@@ -184,7 +360,7 @@ export const zhCN: LocaleDictionary = {
     antigravity: 'Antigravity',
   },
   cli: {
-    description: '智能 Coding Agent 手机推送通知工具（支持 Codex, Claude Code, OpenCode, Antigravity）',
+    description: '智能 Coding Agent 手机推送通知工具（支持 Codex、Claude Code、OpenCode、Antigravity）',
     commands: {
       notify: '为智能体生命周期事件发送推送通知',
       test: '发送测试推送通知以验证 Bark 配置与手机提醒',
@@ -193,6 +369,9 @@ export const zhCN: LocaleDictionary = {
       config: '交互式配置菜单：修改 Bark 凭据、通知规则及首选项',
       repair: '扫描并自动修复损坏或缺失的智能体通知钩子',
       uninstall: '完全还原智能体钩子、删除 ~/.takefive/ 并清除已存凭据',
+      enable: '快速启用一个或多个 Coding Agent 的通知',
+      disable: '快速禁用一个或多个 Coding Agent 的通知',
+      tray: '管理 macOS 菜单栏 / Windows 系统托盘快捷开关应用（start, stop, status）',
     },
     options: {
       agent: '智能体名称（claude, codex, opencode, antigravity）',
@@ -207,7 +386,8 @@ export const zhCN: LocaleDictionary = {
       json: '以 JSON 格式输出状态',
     },
     status: {
-      title: 'Take Five (片刻) · 系统状态',
+      title: '片刻 · 系统状态',
+      statusLabel: '状态:    ',
       barkTitle: '📱 Bark 推送服务',
       configured: '✔ 已配置',
       notConfigured: '✖ 未配置',
@@ -226,14 +406,23 @@ export const zhCN: LocaleDictionary = {
       language: '当前语言',
       debounceWindow: '防抖窗口',
       eventRules: '事件规则',
+      unsupportedPlatformWarning: '⚠ 当前操作系统平台（%s）暂不支持系统级安全凭据存储。需要 macOS Keychain 或 Windows Credential Manager。',
     },
     install: {
-      intro: ' Take Five (片刻) · 安装向导 ',
+      intro: ' 片刻 · 安装向导 ',
+      unsupportedPlatformWarning: '当前操作系统平台（%s）不支持系统级安全凭据存储。\n片刻 需在 macOS Keychain 或 Windows Credential Manager 下安全保存 Bark 密钥。',
+      unsupportedPlatformTitle: '平台兼容性提示',
       scanning: '正在扫描已安装的 Coding Agent 环境...',
       scanned: '智能体环境扫描完成。',
       detectedTitle: '已检测到的 Coding Agent',
-      noAgentsDetected: '用户主目录下未发现预设智能体配置。\n将为所有受支持的智能体配置默认通知钩子。',
+      noAgentsDetected: '未检测到受支持的 Coding Agent 环境。\n暂不安装任何智能体钩子；安装智能体后请运行 "takefive repair"。',
       noAgentsNoteTitle: '智能体环境',
+      existingBarkPrompt: '检测到系统已存有 Bark 推送链接：',
+      reuseExistingOption: '沿用现有链接',
+      inputNewOption: '输入新的 Bark 链接',
+      autoReusingBarkNotice: '检测到已保存的 Bark 地址，已自动沿用：%s',
+      autoReusingConfigNotice: '检测到已有配置偏好，已自动沿用语言与通知规则。',
+      preservedTitle: '配置自动沿用',
       barkPrompt: '请输入您的 Bark 服务器地址或设备推送 Key（如 https://api.day.app/YOUR_KEY/）：',
       barkEmptyError: 'Bark URL 或设备 Key 不能为空。',
       cancelled: '安装已取消。',
@@ -250,10 +439,10 @@ export const zhCN: LocaleDictionary = {
       confirmRulesPrompt: '确认默认通知规则并继续保存配置？',
       savingConfig: '正在初始化配置到 ~/.takefive/config.json ...',
       savedConfig: '配置文件初始化成功。',
-      outro: '✨ Take Five 安装配置成功完成！\n\n运行 takefive test 即可随时向手机发送测试推送通知。',
+      outro: '✨ 片刻 安装配置成功完成！\n\n运行 takefive test 即可随时向手机发送测试推送通知。',
     },
     config: {
-      intro: ' Take Five (片刻) · 偏好设置 ',
+      intro: ' 片刻 · 偏好设置 ',
       menuPrompt: '请选择您想要配置的项目：',
       barkUrlOption: '📱 Bark 服务器 URL / 设备 Key',
       langOption: '🌐 界面与通知语言',
@@ -266,15 +455,20 @@ export const zhCN: LocaleDictionary = {
       cancelledOutro: '已取消配置，未保存任何更改。',
       saveSuccessOutro: '✔ 配置已成功保存至 ~/.takefive/config.json！',
       currentBarkPrompt: '请输入新的 Bark 服务器 URL 或设备 Key',
+      barkEmptyError: 'Bark URL 或设备 Key 不能为空。',
       barkTesting: '正在验证 Bark 推送端点...',
+      barkTestSuccess: '✔ 测试通知已成功送达您的设备！📱',
       barkSuccessNote: 'Bark 凭据已安全保存到系统钥匙串中。',
       barkFailConfirm: '虽然测试未通过，仍要强行保存此 Bark URL 吗？',
       barkForceSaved: 'Bark 凭据已保存（未通过测试验证）。',
       langPrompt: '选择首选通知与终端显示语言：',
       langUpdated: '语言已更新为',
       debouncePrompt: '请输入防抖冷却时间（秒，默认 2）：',
+      debounceInvalid: '请输入非负整数（例如 0, 1, 2, 5）。',
       debounceUpdated: '防抖时间已设置为',
       toggleAgentsPrompt: '选择要开启/关闭的智能体，或返回：',
+      enableAllAgentsOption: '✅ 全部启用（4 个工具）',
+      disableAllAgentsOption: '⏸ 全部禁用（4 个工具）',
       toggleEventsPrompt: '选择要配置的事件类型，或返回：',
       resetConfirm: '确定要将所有配置重置为出厂默认值吗？',
       resetDone: '配置已重置为默认值（尚未保存到磁盘）。',
@@ -283,10 +477,20 @@ export const zhCN: LocaleDictionary = {
       editEventRuleLevel: '推送紧急级别',
       editEventRuleTitle: '自定义标题',
       editEventRuleBody: '自定义正文',
+      selectUrgencyPrompt: '请选择推送紧急级别',
+      customTitlePrompt: '输入自定义标题（1-12 字，留空恢复默认模板）：',
+      titleLengthError: '标题不能超过 12 个字符。',
+      customBodyPrompt: '输入自定义正文（0-32 字，留空恢复默认模板）：',
+      bodyLengthError: '正文不能超过 32 个字符。',
+      noneDefaultTemplate: '无（使用默认模板）',
+      noteSuccess: '成功',
+      noteSaved: '已保存',
+      noteUpdated: '已更新',
+      noteReset: '已重置',
       backOption: '⬅ 返回上一级菜单',
     },
     repair: {
-      scannerTitle: 'Take Five (片刻) · 钩子修复扫描器',
+      scannerTitle: '片刻 · 钩子修复扫描器',
       repaired: '钩子已修复并重新注册',
       healthy: '钩子状态正常（未检测到漂移）',
       skipped: '未找到环境，已跳过',
@@ -295,20 +499,21 @@ export const zhCN: LocaleDictionary = {
       summaryFailed: '✖ 钩子修复结束，存在错误。',
     },
     uninstall: {
-      intro: ' Take Five (片刻) · 卸载程序 ',
-      confirmMessage: '确定要彻底卸载 Take Five 吗？\n这将还原所有智能体配置钩子、删除 ~/.takefive/ 并清除系统钥匙串中的凭据。',
+      intro: ' 片刻 · 卸载程序 ',
+      confirmMessage: '确定要彻底卸载片刻吗？\n这将还原所有智能体配置钩子、删除 ~/.takefive/ 并清除系统钥匙串中的凭据。',
       cancelledOutro: '卸载已取消，未进行任何修改。',
-      purging: '正在清除 Take Five 配置、智能体钩子及凭据...',
+      purging: '正在清除片刻配置、智能体钩子及凭据...',
       purgeDone: '清除完成。',
       summaryTitle: '卸载摘要：',
       restoredFromBak: '已从 .takefive.bak 恢复',
       hooksRemoved: '个钩子已清除',
       configPurged: '配置目录：~/.takefive/ 已完全删除',
       credsPurged: '系统凭据：com.takefive.cli 密钥已从钥匙串中清除',
-      outroSuccess: '✨ Take Five 已完全卸载，系统中无任何残留。',
+      launchersPurged: '启动器与 PATH：安装器创建的命令入口已清除',
+      outroSuccess: '✨ 片刻已完全卸载，系统中无任何残留。',
     },
     test: {
-      testingTitle: '正在测试 Take Five 手机推送通知',
+      testingTitle: '正在测试片刻手机推送通知',
       sent: '发送成功',
       missingCredError: '错误: Bark URL 尚未配置。请运行 "takefive install" 设置凭据。',
       skippedAgentDisabled: '已跳过：智能体在配置中处于禁用状态。',
@@ -328,6 +533,18 @@ export const zhCN: LocaleDictionary = {
       unsupportedAgent: '错误: 不支持的智能体',
       unsupportedEvent: '错误: 不支持的事件类型',
     },
+    agentSwitch: {
+      enabled: '通知已启用',
+      disabled: '通知已禁用',
+    },
+    tray: {
+      started: '✔ 片刻桌面快捷托盘已在后台启动。',
+      alreadyRunning: '片刻桌面快捷托盘已在运行中。',
+      stopped: '✔ 片刻桌面快捷托盘已停止。',
+      notRunning: '片刻桌面快捷托盘当前未在运行。',
+      running: '片刻桌面快捷托盘运行正常。',
+      binaryNotFound: '错误: 未找到桌面快捷托盘可执行程序。请先运行打包或安装脚本。',
+      startFailed: '启动桌面快捷托盘失败',
+    },
   },
 };
-

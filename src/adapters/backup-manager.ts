@@ -1,5 +1,5 @@
-import { copyFile, mkdir, readFile, rename, rm, stat, unlink, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { copyFile, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
 
 export class BackupManager {
   getBackupPath(filePath: string): string {
@@ -64,6 +64,25 @@ export class BackupManager {
     }
   }
 
+  /** Reads optional JSON while surfacing malformed or unreadable user files. */
+  async readJsonStrict<T = Record<string, unknown>>(filePath: string): Promise<T | null> {
+    try {
+      const raw = await readFile(filePath, 'utf-8');
+      return JSON.parse(raw) as T;
+    } catch (error: unknown) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+      throw error;
+    }
+  }
+
+  async readText(filePath: string): Promise<string | null> {
+    try {
+      return await readFile(filePath, 'utf-8');
+    } catch {
+      return null;
+    }
+  }
+
   async atomicWriteJson(filePath: string, data: unknown): Promise<void> {
     const parentDir = dirname(filePath);
     await mkdir(parentDir, { recursive: true });
@@ -73,5 +92,18 @@ export class BackupManager {
 
     await writeFile(tempPath, serialized, 'utf-8');
     await rename(tempPath, filePath);
+  }
+
+  async atomicWriteText(filePath: string, data: string): Promise<void> {
+    const parentDir = dirname(filePath);
+    await mkdir(parentDir, { recursive: true });
+
+    const tempPath = `${filePath}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}.tmp`;
+    await writeFile(tempPath, data, 'utf-8');
+    await rename(tempPath, filePath);
+  }
+
+  async removeFile(filePath: string): Promise<void> {
+    await rm(filePath, { force: true });
   }
 }

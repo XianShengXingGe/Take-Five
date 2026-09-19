@@ -1,6 +1,6 @@
 import type { Command } from 'commander';
 import pc from 'picocolors';
-import { type BarkClient, normalizeBarkUrl } from '../../core/bark-client.js';
+import { type BarkClient, isValidBarkUrl, normalizeBarkUrl } from '../../core/bark-client.js';
 import type { ConfigManager } from '../../core/config-manager.js';
 import type { CredentialStore } from '../../types/credential.js';
 import type { PromptDriver } from '../prompt-driver.js';
@@ -28,22 +28,98 @@ export interface ConfigCommandDependencies {
   credentialStore: CredentialStore;
   barkClient: BarkClient;
   promptDriver?: PromptDriver;
+  env?: Record<string, string | undefined>;
 }
 
-export function registerConfigCommand(
-  program: Command,
+export interface ConfigCommandOptions {
+  barkUrl?: string;
+  autostart?: string;
+  debounce?: string;
+  language?: string;
+  event?: string;
+  level?: string;
+  quiet?: boolean;
+}
+
+export async function runConfigAction(
+  options: ConfigCommandOptions = {},
   deps: ConfigCommandDependencies,
-): void {
-  const lang = detectLanguage();
-  const dict = getLocaleStrings(lang);
+): Promise<void> {
+  let config: TakeFiveConfig = await deps.configManager.loadConfig();
 
-  program
-    .command('config')
-    .description(dict.cli.commands.config)
-    .action(async () => {
+  const hasDirectOptions =
+    options.barkUrl !== undefined ||
+    options.autostart !== undefined ||
+    options.debounce !== undefined ||
+    options.language !== undefined ||
+    options.event !== undefined;
+
+  if (hasDirectOptions) {
+    if (options.barkUrl !== undefined) {
+      if (!isValidBarkUrl(options.barkUrl)) {
+        if (!options.quiet) {
+          console.error(pc.red('Error: Invalid Bark URL or device key format.'));
+        }
+        process.exitCode = 1;
+        return;
+      }
+      const normalizedUrl = normalizeBarkUrl(options.barkUrl);
+      try {
+        await deps.credentialStore.setBarkUrl(normalizedUrl, deps.env);
+      } catch (err: unknown) {
+        if (!options.quiet) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error(pc.red(`Error: Failed to persist Bark credentials: ${msg}`));
+        }
+        process.exitCode = 1;
+        return;
+      }
+    }
+
+    let configModified = false;
+    if (options.autostart !== undefined) {
+      config.autostart = options.autostart === 'true' || options.autostart === '1';
+      configModified = true;
+    }
+    if (options.debounce !== undefined) {
+      const sec = parseFloat(options.debounce);
+      if (!isNaN(sec) && sec >= 0) {
+        config.debounceSeconds = sec;
+        configModified = true;
+      }
+    }
+    if (options.language !== undefined) {
+      let lang = options.language;
+      if (lang === 'zh' || lang === 'zh_CN' || lang === 'cn') {
+        lang = 'zh-CN';
+      }
+      if (isConfigLanguage(lang)) {
+        config.language = lang;
+        configModified = true;
+      }
+    }
+    if (options.event && UNIFIED_EVENT_TYPES.includes(options.event as UnifiedEventType)) {
+      const evt = options.event as UnifiedEventType;
+      const level = options.level;
+      if (level === 'active' || level === 'timeSensitive') {
+        if (!config.events[evt]) {
+          config.events[evt] = { enabled: true, level };
+        } else {
+          config.events[evt].level = level;
+        }
+        configModified = true;
+      }
+    }
+    if (configModified) {
+      await deps.configManager.saveConfig(config);
+    }
+    if (!options.quiet) {
+      console.log(pc.green('✔ Configuration updated successfully.'));
+    }
+    return;
+  }
+
       const prompt = deps.promptDriver ?? defaultPromptDriver;
-
-      let config: TakeFiveConfig = await deps.configManager.loadConfig();
       let activeLang = detectLanguage(config.language);
       let dict = getLocaleStrings(activeLang);
       let c = dict.cli.config;
@@ -92,7 +168,7 @@ export function registerConfigCommand(
             message: `${c.currentBarkPrompt} (${currentUrl ? 'configured' : 'none'}):`,
             validate: (value) => {
               if (!value || value.trim().length === 0) {
-                return 'Bark URL or device key cannot be empty.';
+                return c.barkEmptyError;
               }
               return undefined;
             },
@@ -115,9 +191,9 @@ export function registerConfigCommand(
 
           try {
             await deps.barkClient.push(normalizedUrl, testPayload);
-            spinner.stop(pc.green('✔ Test notification verified on your device!'));
+            spinner.stop(pc.green(c.barkTestSuccess));
             await deps.credentialStore.setBarkUrl(normalizedUrl);
-            prompt.note(c.barkSuccessNote, 'Success');
+            prompt.note(c.barkSuccessNote, c.noteSuccess);
           } catch (err: unknown) {
             const errorMsg = err instanceof Error ? err.message : String(err);
             spinner.stop(pc.red(`✖ Failed to reach Bark server: ${errorMsg}`));
@@ -129,7 +205,7 @@ export function registerConfigCommand(
 
             if (!prompt.isCancel(forceSave) && forceSave === true) {
               await deps.credentialStore.setBarkUrl(normalizedUrl);
-              prompt.note(c.barkForceSaved, 'Saved');
+              prompt.note(c.barkForceSaved, c.noteSaved);
             }
           }
           continue;
@@ -150,7 +226,7 @@ export function registerConfigCommand(
           if (isConfigLanguage(langChoice)) {
             config.language = langChoice;
           }
-          prompt.note(`${c.langUpdated} "${config.language}".`, 'Updated');
+          prompt.note(`${c.langUpdated} "${config.language}".`, c.noteUpdated);
           continue;
         }
 
@@ -161,7 +237,7 @@ export function registerConfigCommand(
             validate: (val) => {
               const num = Number(val);
               if (isNaN(num) || num < 0 || !Number.isInteger(num)) {
-                return 'Please enter a non-negative integer (e.g. 0, 1, 2, 5).';
+                return c.debounceInvalid;
               }
               return undefined;
             },
@@ -169,7 +245,7 @@ export function registerConfigCommand(
 
           if (prompt.isCancel(debounceInput)) continue;
           config.debounceSeconds = Number(debounceInput);
-          prompt.note(`${c.debounceUpdated} ${config.debounceSeconds}s.`, 'Updated');
+          prompt.note(`${c.debounceUpdated} ${config.debounceSeconds}s.`, c.noteUpdated);
           continue;
         }
 
@@ -203,13 +279,36 @@ export function registerConfigCommand(
               },
               enabledAgents: { ...DEFAULT_CONFIG.enabledAgents },
             };
-            prompt.note(c.resetDone, 'Reset');
+            prompt.note(c.resetDone, c.noteReset);
           }
           continue;
         }
       }
+    }
+
+
+export function registerConfigCommand(
+  program: Command,
+  deps: ConfigCommandDependencies,
+): void {
+  const lang = detectLanguage();
+  const dict = getLocaleStrings(lang);
+
+  program
+    .command('config')
+    .description(dict.cli.commands.config)
+    .option('-b, --bark-url <url>', 'Set Bark push URL or device key directly')
+    .option('--autostart <boolean>', 'Enable or disable autostart (true/false)')
+    .option('--debounce <seconds>', 'Set debounce duration in seconds')
+    .option('--language <lang>', 'Set language (system, zh-CN, en)')
+    .option('--event <type>', 'Set event rule type (task_completed, waiting_input, waiting_permission, task_failed)')
+    .option('--level <level>', 'Set notification level (active, timeSensitive)')
+    .option('-q, --quiet', 'Suppress output')
+    .action(async (options: ConfigCommandOptions = {}) => {
+      await runConfigAction(options, deps);
     });
 }
+
 
 async function configureAgentsMenu(
   config: TakeFiveConfig,
@@ -229,11 +328,22 @@ async function configureAgentsMenu(
 
     const agentChoice = await prompt.select<string>({
       message: dict.cli.config.toggleAgentsPrompt,
-      options: [...options, { value: 'back', label: dict.cli.config.backOption }],
+      options: [
+        { value: 'enable_all', label: dict.cli.config.enableAllAgentsOption },
+        { value: 'disable_all', label: dict.cli.config.disableAllAgentsOption },
+        ...options,
+        { value: 'back', label: dict.cli.config.backOption },
+      ],
     });
 
     if (prompt.isCancel(agentChoice) || agentChoice === 'back') {
       return;
+    }
+
+    if (agentChoice === 'enable_all' || agentChoice === 'disable_all') {
+      const enabled = agentChoice === 'enable_all';
+      for (const agent of SUPPORTED_AGENTS) config.enabledAgents[agent] = enabled;
+      continue;
     }
 
     const targetAgent = agentChoice as SupportedAgent;
@@ -296,11 +406,11 @@ async function configureSingleEventRule(
         },
         {
           value: 'title',
-          label: `${c.editEventRuleTitle}: ${rule.title ? pc.cyan(`"${rule.title}"`) : pc.dim('None (default template)')}`,
+          label: `${c.editEventRuleTitle}: ${rule.title ? pc.cyan(`"${rule.title}"`) : pc.dim(c.noneDefaultTemplate)}`,
         },
         {
           value: 'body',
-          label: `${c.editEventRuleBody}: ${rule.body ? pc.cyan(`"${rule.body}"`) : pc.dim('None (default template)')}`,
+          label: `${c.editEventRuleBody}: ${rule.body ? pc.cyan(`"${rule.body}"`) : pc.dim(c.noneDefaultTemplate)}`,
         },
         { value: 'back', label: c.backOption },
       ],
@@ -317,11 +427,11 @@ async function configureSingleEventRule(
 
     if (editChoice === 'level') {
       const levelChoice = await prompt.select<NotificationLevel>({
-        message: `Select push urgency level for ${eventType}:`,
+        message: `${c.selectUrgencyPrompt} (${dict.events[eventType]?.title ?? eventType}):`,
         options: [
           { value: 'passive', label: 'passive (静默通知 - No sound/vibration)' },
-          { value: 'active', label: 'active (普通通知 - Standard alert)' },
-          { value: 'timeSensitive', label: 'timeSensitive (重要提醒 - Breaks through focus)' },
+          { value: 'active', label: 'active (普通 - Standard alert)' },
+          { value: 'timeSensitive', label: 'timeSensitive (重要 - Breaks through focus)' },
           { value: 'critical', label: 'critical (强提醒 - Alarm sound)' },
         ],
         initialValue: rule.level,
@@ -335,29 +445,41 @@ async function configureSingleEventRule(
 
     if (editChoice === 'title') {
       const titleInput = await prompt.text({
-        message: 'Enter custom title override (leave empty to reset to default):',
+        message: c.customTitlePrompt,
         defaultValue: rule.title ?? '',
+        validate: (val) => {
+          if (!val || String(val).trim().length === 0) return undefined;
+          if (String(val).trim().length > 12) {
+            return c.titleLengthError;
+          }
+          return undefined;
+        },
       });
 
       if (!prompt.isCancel(titleInput)) {
         const trimmed = String(titleInput).trim();
-        rule.title = trimmed.length > 0 ? trimmed : undefined;
+        rule.title = trimmed.length > 0 ? trimmed.slice(0, 12) : undefined;
       }
       continue;
     }
 
     if (editChoice === 'body') {
       const bodyInput = await prompt.text({
-        message: 'Enter custom body override (leave empty to reset to default):',
+        message: c.customBodyPrompt,
         defaultValue: rule.body ?? '',
+        validate: (val) => {
+          if (val && String(val).trim().length > 32) {
+            return c.bodyLengthError;
+          }
+          return undefined;
+        },
       });
 
       if (!prompt.isCancel(bodyInput)) {
         const trimmed = String(bodyInput).trim();
-        rule.body = trimmed.length > 0 ? trimmed : undefined;
+        rule.body = trimmed.length > 0 ? trimmed.slice(0, 32) : undefined;
       }
       continue;
     }
   }
 }
-

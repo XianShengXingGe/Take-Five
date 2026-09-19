@@ -6,7 +6,9 @@ node_modules/
 dist/
 build/
 *.dmg
+*.zip
 *.tgz
+*.exe
 *.tsbuildinfo
 
 # Environment & credentials
@@ -28,11 +30,13 @@ coverage/
 .vscode/
 
 # Private / internal — not open-sourced
-# Product requirements, agent context, handoff notes, agent tooling, tests, docs
+# Product requirements, agent context, handoff notes, agent tooling, docs, scratch tickets, internal art
 AGENTS.md
 CONTEXT.md
 HANDOFF.md
 *_PRD.md
 docs/
 skills/
-tests/
+.scratch/
+片刻 ICON.png
+

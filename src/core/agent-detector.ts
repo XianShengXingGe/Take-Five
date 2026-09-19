@@ -26,7 +26,7 @@ const AGENT_PATH_CANDIDATES: Record<SupportedAgent, string[]> = {
   claude: ['.claude', '.claude.json'],
   codex: ['.codex'],
   opencode: ['.opencode', join('.config', 'opencode')],
-  antigravity: [join('.gemini', 'antigravity'), '.antigravity'],
+  antigravity: [join('.gemini', 'antigravity'), '.gemini', '.antigravity'],
 };
 
 /**

@@ -12,6 +12,85 @@ export function normalizeBarkUrl(input: string): string {
   return `https://api.day.app/${trimmed}`;
 }
 
+/**
+ * Validates whether the given input is a valid Bark device key or HTTP/HTTPS Bark push URL.
+ */
+export function isValidBarkUrl(input: unknown): boolean {
+  if (typeof input !== 'string') return false;
+  // Disallow control characters (newlines, tabs, etc.) anywhere
+  if (/[\x00-\x1F\x7F]/.test(input)) return false;
+
+  const trimmed = input.trim();
+  if (!trimmed) return false;
+
+  // Disallow any whitespace in trimmed string
+  if (/\s/.test(trimmed)) return false;
+
+  // Case 1: Full HTTP or HTTPS URL
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    try {
+      const parsed = new URL(trimmed);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        return false;
+      }
+      if (!parsed.hostname || parsed.hostname.includes('..')) {
+        return false;
+      }
+      // For official Bark domain (api.day.app), a device key in pathname is required
+      if (parsed.hostname === 'api.day.app' || parsed.hostname.endsWith('.day.app')) {
+        const segments = parsed.pathname.split('/').filter(Boolean);
+        if (segments.length === 0) {
+          return false;
+        }
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // Case 2: Bare device key for api.day.app
+  // Must be an alphanumeric/underscore/dash token with optional trailing slash
+  return /^[a-zA-Z0-9_-]+(\/)?$/.test(trimmed);
+}
+
+/**
+ * Masks a Bark URL or device key to safely display in CLI prompts without leaking full secrets.
+ */
+export function maskBarkUrl(input: string | null | undefined): string {
+  if (!input || typeof input !== 'string') return '';
+  const trimmed = input.trim();
+  if (!trimmed) return '';
+
+  try {
+    const isFullUrl = trimmed.startsWith('http://') || trimmed.startsWith('https://');
+    const url = new URL(isFullUrl ? trimmed : `https://api.day.app/${trimmed}`);
+    const segments = url.pathname.split('/').filter(Boolean);
+    if (segments.length > 0) {
+      const keyIdx = segments.length - 1;
+      const key = segments[keyIdx];
+      let maskedKey: string;
+      if (key.length <= 6) {
+        maskedKey = '***';
+      } else if (key.length <= 10) {
+        maskedKey = `${key.slice(0, 2)}***${key.slice(-2)}`;
+      } else {
+        maskedKey = `${key.slice(0, 3)}***${key.slice(-3)}`;
+      }
+      segments[keyIdx] = maskedKey;
+      const trailingSlash = trimmed.endsWith('/') ? '/' : '';
+      if (!isFullUrl) {
+        return maskedKey;
+      }
+      return `${url.origin}/${segments.join('/')}${trailingSlash}`;
+    }
+    return isFullUrl ? url.origin : '***';
+  } catch {
+    if (trimmed.length <= 6) return '***';
+    return `${trimmed.slice(0, 3)}***${trimmed.slice(-3)}`;
+  }
+}
+
 export interface BarkClientOptions {
   fetchImpl?: typeof fetch;
   timeoutMs?: number;

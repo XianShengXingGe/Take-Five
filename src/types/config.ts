@@ -41,6 +41,8 @@ export interface TakeFiveConfig {
   events: Record<UnifiedEventType, EventRule>;
   /** Enabled status per supported agent */
   enabledAgents: Record<SupportedAgent, boolean>;
+  /** Whether Take Five automatically launches on system login */
+  autostart?: boolean;
 }
 
 /**
